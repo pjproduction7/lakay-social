@@ -741,7 +741,7 @@ export default function HaitiSocialApp() {
 
   // Load state on mount
   useEffect(() => {
-    const saved = loadState();
+    const saved = loadState() || {};
     if (saved.language) {
       setLanguageState(saved.language);
       setLanguage(saved.language);
