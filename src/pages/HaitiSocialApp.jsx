@@ -2951,7 +2951,13 @@ export default function HaitiSocialApp() {
 
   if (screen === "profile") {
     const u = viewProfileUser || currentUser;
-    const p = profiles[u] || { username: u, displayName: u, bio: "", location: "", photoDataUrl: "", photos: [] };
+    const p = profiles[u] && typeof profiles[u] === 'object' ? profiles[u] : { username: u, displayName: u, bio: "", location: "", photoDataUrl: "", photos: [] };
+    // Defensive: fallback for any property
+    const displayName = p?.displayName || u;
+    const bio = p?.bio || "";
+    const location = p?.location || "";
+    const photoDataUrl = p?.photoDataUrl || "";
+    const photos = Array.isArray(p?.photos) ? p.photos : [];
     const isMe = u === currentUser;
 
     return (
