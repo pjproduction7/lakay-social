@@ -24,7 +24,7 @@ export default function App() {
           Notification.requestPermission()
             .then(permission => {
               if (permission === 'granted') {
-                const vapidPublicKey = import.meta.env.VITE_PUSH_VAPID_PUBLIC_KEY || '';
+                const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
                 if (!vapidPublicKey) {
                   console.error('VAPID public key missing');
                   alert('Push notifications are not available: VAPID public key is missing. Please contact the site administrator.');
