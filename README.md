@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ## Hi there 👋
 
 <!--
@@ -14,3 +15,7 @@ Here are some ideas to get you started:
 - 😄 Pronouns: ...
 - ⚡ Fun fact: ...
 -->
+=======
+# lakay-social
+A social platform built for the Haitian community, featuring chat rooms, opinions, voting, and community engagement.
+>>>>>>> dd664cc9cbd7dd68a2526caf5527e5c7f2e4e562
