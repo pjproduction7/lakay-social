@@ -18,9 +18,7 @@
     "multer": "^2.0.2",
     "pg": "^8.11.3",
     "socket.io": "^4.7.5",
+    "web-push": "^3.6.7",
     "zod": "^3.23.8"
-  },
-  "devDependencies": {
-    "web-push": "^3.6.7"
   }
 }
