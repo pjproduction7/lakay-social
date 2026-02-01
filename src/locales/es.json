@@ -1,0 +1,19 @@
+{
+  "appName": "Lakay Social",
+  "home": "Inicio",
+  "music": "Música",
+  "games": "Juegos",
+  "chat": "Chat Público",
+  "feed": "Feed",
+  "friends": "Amigos",
+  "classmates": "Compañeros",
+  "login": "Iniciar sesión",
+  "createAccount": "Crear cuenta",
+  "logout": "Cerrar sesión",
+  "search": "Buscar",
+  "saved": "Guardado",
+  "notifications": "Notificaciones",
+  "privateMessages": "Mensajes Privados",
+  "createPostPlaceholder": "¿Qué estás pensando?",
+  "chatPlaceholder": "Escribe un mensaje..."
+}

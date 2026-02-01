@@ -1,0 +1,4 @@
+
+git add .vercelignore
+git commit -m "Ignore server folder in Vercel builds"
+git push origin main
