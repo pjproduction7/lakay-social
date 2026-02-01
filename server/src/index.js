@@ -25,7 +25,15 @@ const ADMIN_USERNAME = rawAdminUsername.trim().toLowerCase();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 
 app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",") : "*" }));
+app.use(cors({
+  origin: [
+    "https://lakaysocial.com",
+    "https://www.lakaysocial.com",
+    "http://localhost:5173",
+    "https://lakay-social-production-361d.up.railway.app"
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
 app.get("/health", function(_req, res) {
