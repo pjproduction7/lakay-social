@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { query } from "../db.js";
-import { requireAuth } from "./middleware/auth.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -246,3 +246,4 @@ router.post("/:postId/comments", requireAuth, async (req, res) => {
 });
 
 export default router;
+
