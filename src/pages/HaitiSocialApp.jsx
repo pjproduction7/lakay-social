@@ -50,13 +50,6 @@ import {
   reactToPost as reactToRemotePost,
   addComment as addRemoteComment,
 } from '../services/feed';
-import { PHOTO_FILTERS, MAX_PROFILE_PHOTOS } from '../../shared/photoFilters';
-
-const DEFAULT_FILTER_STYLE = PHOTO_FILTERS.find((filter) => filter.id !== "original")?.id || "original";
-const FILTER_LABEL_LOOKUP = PHOTO_FILTERS.reduce((acc, filter) => {
-  acc[filter.id] = filter.label;
-  return acc;
-  }, {});
 
 const readEnvValue = (keys, fallback) => {
   for (const key of keys) {
@@ -113,9 +106,7 @@ export default function HaitiSocialApp() {
   const [viewProfileUser, setViewProfileUser] = useState(null);
   const [editBio, setEditBio] = useState("");
   const [editLocation, setEditLocation] = useState("");
-  const [selectedFilterStyle, setSelectedFilterStyle] = useState(DEFAULT_FILTER_STYLE);
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
-  const [aiFiltersEnabled, setAiFiltersEnabled] = useState(true); // Removed filter-related state
 
   // ========== SOCIAL FEED ==========
   const [posts, setPosts] = useState([]);
