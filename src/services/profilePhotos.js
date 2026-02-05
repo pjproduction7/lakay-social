@@ -1,6 +1,6 @@
 import { apiRequest } from "./api";
 
-export async function uploadProfilePhotos({ files }) {
+export async function uploadProfilePhotos(files) {
   const formData = new FormData();
   for (const file of files) {
     formData.append("photos", file);
@@ -19,11 +19,8 @@ export async function setPrimaryProfilePhoto({ photoId }) {
 }
 
 export async function deleteProfilePhoto({ photoId }) {
-  return apiRequest(`/profiles/photos/${photoId}", {
+  return apiRequest(`/profiles/photos/${photoId}`, {
     method: "DELETE",
   });
 }
 
-export async function fetchPhotoFilterMetadata() {
-  return apiRequest("/profiles/photo-filters", { method: "GET" });
-}

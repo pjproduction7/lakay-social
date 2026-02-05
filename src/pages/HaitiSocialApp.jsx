@@ -40,7 +40,6 @@ import {
   uploadProfilePhotos,
   setPrimaryProfilePhoto,
   deleteProfilePhoto,
-  fetchPhotoFilterMetadata,
 } from '../services/profilePhotos';
 import { loadState, saveState, containsProfanity, validatePassword, validateEmail, compressImage } from '../utils/helpers';
 import { BLACKLISTED_POLITICIANS } from '../utils/constants';
@@ -57,7 +56,7 @@ const DEFAULT_FILTER_STYLE = PHOTO_FILTERS.find((filter) => filter.id !== "origi
 const FILTER_LABEL_LOOKUP = PHOTO_FILTERS.reduce((acc, filter) => {
   acc[filter.id] = filter.label;
   return acc;
-}, {});
+  }, {});
 
 const readEnvValue = (keys, fallback) => {
   for (const key of keys) {
@@ -116,7 +115,7 @@ export default function HaitiSocialApp() {
   const [editLocation, setEditLocation] = useState("");
   const [selectedFilterStyle, setSelectedFilterStyle] = useState(DEFAULT_FILTER_STYLE);
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
-  const [aiFiltersEnabled, setAiFiltersEnabled] = useState(true);
+  const [aiFiltersEnabled, setAiFiltersEnabled] = useState(true); // Removed filter-related state
 
   // ========== SOCIAL FEED ==========
   const [posts, setPosts] = useState([]);
@@ -825,20 +824,7 @@ export default function HaitiSocialApp() {
     loadProfile(currentUser);
   }, [currentUser, loadProfile]);
 
-  useEffect(() => {
-    const bootstrapFilterMetadata = async () => {
-      try {
-        const meta = await fetchPhotoFilterMetadata();
-        if (typeof meta?.aiEnabled === "boolean") {
-          setAiFiltersEnabled(meta.aiEnabled);
-        }
-      } catch (err) {
-        console.warn("Failed to load filter metadata", err);
-      }
-    };
-
-    bootstrapFilterMetadata();
-  }, []);
+  // Removed filter metadata effect
 
   useEffect(() => {
     if (screen === "privateMessages" && currentUser) {
@@ -848,7 +834,7 @@ export default function HaitiSocialApp() {
 
   useEffect(() => {
     if (!aiFiltersEnabled && selectedFilterStyle !== "original") {
-      setSelectedFilterStyle("original");
+      setSelectedFilterStyle("original"); // Removed filter-related effects
     }
   }, [aiFiltersEnabled, selectedFilterStyle]);
 
@@ -2981,6 +2967,7 @@ export default function HaitiSocialApp() {
 
           {isMe && (
             <div className="mt-6">
+                {/* Removed AI Photo Filters UI */}
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <div className="font-bold text-gray-900">AI Photo Filters</div>
                 <div className="text-sm text-gray-600">{(p.photos?.length || 0)} / {MAX_PROFILE_PHOTOS} photos</div>
