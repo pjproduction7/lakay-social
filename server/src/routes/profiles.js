@@ -1,7 +1,14 @@
+
+import { Router } from "express";
+import { z } from "zod";
+import { query } from "../db.js";
 import multer from "multer";
 import cloudinary from "../services/cloudinary.js";
 import { requireAuth } from "../middleware/auth.js";
+
+const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
+
 // POST /profiles/photos - upload profile photos
 router.post("/photos", requireAuth, upload.array("photos", 6), async (req, res) => {
   if (!req.files || req.files.length === 0) {
@@ -26,12 +33,7 @@ router.post("/photos", requireAuth, upload.array("photos", 6), async (req, res) 
     res.status(500).json({ error: "Failed to upload photos" });
   }
 });
-import { Router } from "express";
-import { z } from "zod";
-import { query } from "../db.js";
-import { requireAuth } from "../middleware/auth.js";
 
-const router = Router();
 
 const profileSchema = z.object({
   displayName: z.string().min(1).max(80),
