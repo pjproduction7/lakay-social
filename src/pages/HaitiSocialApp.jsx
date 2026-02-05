@@ -600,12 +600,10 @@ export default function HaitiSocialApp() {
 
       setIsUploadingPhotos(true);
       try {
-        const filterToUse = aiFiltersEnabled ? selectedFilterStyle : "original";
-        await uploadProfilePhotos(fileList, { filterStyle: filterToUse });
+        await uploadProfilePhotos(fileList);
         await loadProfile(currentUser);
         await refreshUsers();
-        const usedAi = filterToUse !== "original";
-        pushNotif(usedAi ? "✨ Photo uploaded with AI filter" : "📸 Photo uploaded");
+        pushNotif("📸 Photo uploaded");
       } catch (err) {
         console.error(err);
         pushNotif(`❌ Failed to upload photo: ${err?.message || "Unknown error"}`);
@@ -613,7 +611,7 @@ export default function HaitiSocialApp() {
         setIsUploadingPhotos(false);
       }
     },
-    [aiFiltersEnabled, currentUser, loadProfile, refreshUsers, selectedFilterStyle, pushNotif]
+    [currentUser, loadProfile, refreshUsers, pushNotif]
   );
 
   const handleSetPrimaryPhoto = useCallback(
