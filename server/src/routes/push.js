@@ -8,12 +8,17 @@ const router = Router();
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
+console.log('VAPID keys loaded:', { public: !!vapidPublicKey, private: !!vapidPrivateKey });
+
 if (vapidPublicKey && vapidPrivateKey) {
   webPush.setVapidDetails(
     "mailto:admin@lakay.social",
     vapidPublicKey,
     vapidPrivateKey
   );
+  console.log('VAPID details set for web-push');
+} else {
+  console.warn('VAPID keys not found, push notifications will not work');
 }
 
 // POST /push/send - Send push notification to a user

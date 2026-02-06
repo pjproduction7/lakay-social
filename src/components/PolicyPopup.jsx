@@ -1,4 +1,5 @@
 import React from "react";
+import PropTypes from 'prop-types';
 
 export default function PolicyPopup({ onAccept }) {
   return (
@@ -33,6 +34,10 @@ export default function PolicyPopup({ onAccept }) {
     </div>
   );
 }
+
+PolicyPopup.propTypes = {
+  onAccept: PropTypes.func.isRequired,
+};
 
 const styles = {
   overlay: {

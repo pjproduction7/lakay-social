@@ -1,0 +1,218 @@
+import React from 'react';
+import { Camera, X, Send, Bookmark, MessageSquare } from 'lucide-react';
+import PropTypes from 'prop-types';
+
+export default function Feed({
+  trans,
+  postTextRef,
+  postText,
+  postImage,
+  postImageInputId,
+  handleImageUpload,
+  handleCreatePost,
+  posts,
+  openProfile,
+  currentUser,
+  toggleSave,
+  handleToggleLike,
+  handleReaction,
+  commentRefs,
+  commentTexts,
+  handleAddComment,
+}) {
+  return (
+    <>
+      {/* Create Post */}
+      <div className="bg-gradient-to-br from-purple-600 via-pink-500 to-red-500 rounded-2xl p-6 mb-6 shadow-2xl">
+        <h3 className="font-bold text-white text-2xl mb-4">✨ Create a Post</h3>
+
+        <textarea
+          ref={postTextRef}
+          defaultValue={postText}
+          placeholder={trans.createPostPlaceholder}
+          className="w-full p-4 rounded-xl border-4 border-white/50 text-gray-900 mb-4 text-lg font-semibold"
+          rows={3}
+        />
+
+        {postImage && (
+          <div className="mb-4 relative">
+            <img src={postImage} alt="Preview" className="w-full max-h-60 object-cover rounded-xl border-4 border-white/50 shadow-lg" />
+            <button
+              onClick={() => {
+                // Parent should control clearing image via passed handler, but simple behavior here:
+                if (postTextRef?.current) postTextRef.current.value = '';
+              }}
+              className="absolute top-4 right-4 bg-red-500 text-white rounded-full p-2 hover:bg-red-600"
+            >
+              <X size={24} />
+            </button>
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          <input
+            id={postImageInputId}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleImageUpload}
+          />
+          <label
+            htmlFor={postImageInputId}
+            className="flex-1 bg-white text-purple-700 py-3 px-6 rounded-xl cursor-pointer hover:scale-105 transition text-center font-bold"
+          >
+            <Camera size={24} className="inline mr-2" />
+            Add Photo
+          </label>
+          <button
+            onClick={handleCreatePost}
+            className="flex-1 bg-white text-pink-700 py-3 px-6 rounded-xl hover:scale-105 transition font-bold"
+          >
+            Post 🚀
+          </button>
+        </div>
+      </div>
+
+      {/* Posts Feed */}
+      <div className="space-y-6">
+        {posts.length === 0 ? (
+          <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-12 text-center shadow-2xl">
+            <MessageSquare size={64} className="mx-auto mb-4 text-white" />
+            <p className="text-white text-xl font-bold">No posts yet. Be the first to share!</p>
+          </div>
+        ) : (
+          posts.map((post) => (
+            <div key={post.id} className="bg-gradient-to-br from-yellow-400 via-orange-400 to-red-400 rounded-2xl p-6 shadow-2xl border-4 border-white/50">
+              {/* Post Header */}
+              <div className="flex items-center gap-3 mb-4">
+                <div
+                  className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold cursor-pointer border-4 border-white shadow-lg text-xl"
+                  onClick={() => openProfile(post.user)}
+                >
+                  {post.user[0].toUpperCase()}
+                </div>
+                <div className="flex-1">
+                  <div
+                    className="font-bold text-white text-lg cursor-pointer hover:underline"
+                    onClick={() => openProfile(post.user)}
+                  >
+                    {post.user}
+                  </div>
+                  <div className="text-sm text-white/80">
+                    {new Date(post.timestamp).toLocaleString()}
+                  </div>
+                </div>
+                <button onClick={() => toggleSave(`post:${post.id}`)} className="text-white hover:scale-110 transition">
+                  <Bookmark size={24} />
+                </button>
+              </div>
+
+              {/* Post Content */}
+              <p className="text-white text-lg font-semibold mb-4 bg-black/20 rounded-xl p-4">{post.content}</p>
+
+              {/* Post Image */}
+              {post.image && (
+                <img src={post.image} alt="Post" className="w-full max-h-96 object-cover rounded-xl mb-4 border-4 border-white shadow-lg" />
+              )}
+
+              {/* Interactions */}
+              <div className="mb-4 pb-4 border-b-4 border-white/30">
+                <div className="flex items-center gap-4 mb-3">
+                  <button
+                    onClick={() => handleToggleLike(post.id)}
+                    className={`flex items-center gap-2 text-lg font-bold ${
+                      post.likes.includes(currentUser) ? "text-red-600 scale-110" : "text-white hover:scale-110"
+                    } transition`}
+                  >
+                    {post.likes.includes(currentUser) ? "❤️" : "🤍"}
+                    <span>{post.likes.length} {post.likes.length === 1 ? "Like" : "Likes"}</span>
+                  </button>
+                  <button className="flex items-center gap-2 text-white hover:scale-110 transition font-bold text-lg">
+                    <MessageSquare size={24} />
+                    <span>{post.comments.length} {post.comments.length === 1 ? "Comment" : "Comments"}</span>
+                  </button>
+                </div>
+
+                {/* Emoji Reactions */}
+                <div className="flex gap-3 text-2xl">
+                  <button onClick={() => handleReaction(post.id, 'like')} className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition">
+                    👍 <span className="text-sm font-bold">{post.reactions.like}</span>
+                  </button>
+                  <button onClick={() => handleReaction(post.id, 'love')} className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition">
+                    ❤️ <span className="text-sm font-bold">{post.reactions.love}</span>
+                  </button>
+                  <button onClick={() => handleReaction(post.id, 'haha')} className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition">
+                    😂 <span className="text-sm font-bold">{post.reactions.haha}</span>
+                  </button>
+                  <button onClick={() => handleReaction(post.id, 'fire')} className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition">
+                    🔥 <span className="text-sm font-bold">{post.reactions.fire}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Comments */}
+              <div className="space-y-3 mb-4">
+                {post.comments.map((comment, idx) => (
+                  <div key={idx} className="flex gap-3">
+                    <div
+                      className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center text-white text-sm font-bold cursor-pointer flex-shrink-0 border-2 border-white"
+                      onClick={() => openProfile(comment.user)}
+                    >
+                      {comment.user[0].toUpperCase()}
+                    </div>
+                    <div className="flex-1 bg-white rounded-xl p-3 shadow-lg">
+                      <div
+                        className="font-bold text-sm cursor-pointer hover:text-blue-600"
+                        onClick={() => openProfile(comment.user)}
+                      >
+                        {comment.user}
+                      </div>
+                      <div className="text-sm text-gray-800">{comment.text}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add Comment */}
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  ref={(el) => { commentRefs.current[post.id] = el; }}
+                  defaultValue={commentTexts[post.id] || ""}
+                  placeholder="Write a comment..."
+                  className="flex-1 p-3 rounded-xl border-4 border-white/50 text-gray-900 font-semibold"
+                  onKeyDown={(e) => e.key === "Enter" && handleAddComment(post.id)}
+                />
+                <button
+                  onClick={() => handleAddComment(post.id)}
+                  className="bg-white px-6 rounded-xl hover:scale-110 transition text-orange-600 font-bold"
+                >
+                  <Send size={24} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </>
+  );
+}
+
+Feed.propTypes = {
+  trans: PropTypes.object.isRequired,
+  postTextRef: PropTypes.object,
+  postText: PropTypes.string,
+  postImage: PropTypes.string,
+  postImageInputId: PropTypes.string,
+  handleImageUpload: PropTypes.func.isRequired,
+  handleCreatePost: PropTypes.func.isRequired,
+  posts: PropTypes.array.isRequired,
+  openProfile: PropTypes.func.isRequired,
+  currentUser: PropTypes.string,
+  toggleSave: PropTypes.func.isRequired,
+  handleToggleLike: PropTypes.func.isRequired,
+  handleReaction: PropTypes.func.isRequired,
+  commentRefs: PropTypes.object.isRequired,
+  commentTexts: PropTypes.object.isRequired,
+  handleAddComment: PropTypes.func.isRequired,
+};

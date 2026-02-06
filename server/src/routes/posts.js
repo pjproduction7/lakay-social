@@ -1,9 +1,13 @@
 import { Router } from "express";
+import express from "express";
 import { z } from "zod";
 import { query } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
+// Allow larger JSON payloads for posts that may include big imageUrl strings
+router.use(express.json({ limit: '1mb' }));
+
 
 const createPostSchema = z.object({
   content: z.string().min(1).max(2000),

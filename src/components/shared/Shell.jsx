@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { ArrowLeft } from 'lucide-react';
 
 export default function Shell({ title, onBack, children, bgColor = "bg-gray-900", textColor = "text-white" }) {
@@ -16,3 +17,11 @@ export default function Shell({ title, onBack, children, bgColor = "bg-gray-900"
     </div>
   );
 }
+
+Shell.propTypes = {
+  title: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
+  onBack: PropTypes.func,
+  children: PropTypes.node,
+  bgColor: PropTypes.string,
+  textColor: PropTypes.string,
+};

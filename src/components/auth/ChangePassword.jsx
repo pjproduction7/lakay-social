@@ -1,13 +1,8 @@
-import React, { useState } from "react";
-import { ArrowLeft, CheckCircle, Lock, ShieldAlert } from "lucide-react";
-// import { changePassword } from "../../services/auth";
-import { validatePassword } from "../../utils/helpers";
+import React from "react";
+import { ArrowLeft, Lock } from "lucide-react";
+import PropTypes from 'prop-types';
 
-const initialForm = {
-  currentPassword: "",
-  newPassword: "",
-  confirmPassword: "",
-};
+
 
 export default function ChangePassword({ onCancel }) {
   return (
@@ -32,3 +27,7 @@ export default function ChangePassword({ onCancel }) {
     </div>
   );
 }
+
+ChangePassword.propTypes = {
+  onCancel: PropTypes.func.isRequired,
+};

@@ -1,5 +1,4 @@
-import { useEffect, useRef } from "react";
-
+// No hooks required for the static stub
 // All socket.io and WebSocket code removed for static deployment.
 // Real-time chat features are disabled.
 

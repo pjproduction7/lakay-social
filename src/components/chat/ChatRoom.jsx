@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import PropTypes from 'prop-types';
 
 export default function ChatRoom({ currentUser, isAdmin }) {
   const [room, setRoom] = useState("Haiti");
@@ -15,8 +16,8 @@ export default function ChatRoom({ currentUser, isAdmin }) {
     if (saved) {
       try {
         setMessages(JSON.parse(saved));
-      } catch (e) {
-        console.log("Could not load saved messages");
+      } catch (err) {
+        console.log("Could not load saved messages", err?.message);
       }
     }
   }, []);
@@ -130,3 +131,8 @@ export default function ChatRoom({ currentUser, isAdmin }) {
     </div>
   );
 }
+
+ChatRoom.propTypes = {
+  currentUser: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
+  isAdmin: PropTypes.bool,
+};

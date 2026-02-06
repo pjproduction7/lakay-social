@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import PropTypes from 'prop-types';
 
 export default function PhoneVerification({ onVerified, onClose }) {
   const [step, setStep] = useState("enter");
@@ -61,3 +62,8 @@ export default function PhoneVerification({ onVerified, onClose }) {
     </div>
   );
 }
+
+PhoneVerification.propTypes = {
+  onVerified: PropTypes.func.isRequired,
+  onClose: PropTypes.func.isRequired,
+};

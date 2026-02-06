@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import PropTypes from 'prop-types';
 
 export default function SnakeGame({ onGameOver }) {
   const [snake, setSnake] = useState([{ x: 10, y: 10 }]);
@@ -129,3 +130,7 @@ export default function SnakeGame({ onGameOver }) {
     </div>
   );
 }
+
+SnakeGame.propTypes = {
+  onGameOver: PropTypes.func,
+};

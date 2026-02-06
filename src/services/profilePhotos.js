@@ -9,21 +9,24 @@ export async function uploadProfilePhotos({ files }) {
     method: "POST",
     body: formData,
     isForm: true,
+    auth: true,
   });
 }
 
-export async function setPrimaryProfilePhoto({ photoId }) {
+export async function setPrimaryProfilePhoto(arg) {
+  const photoId = (arg && typeof arg === 'object') ? arg.photoId : arg;
+  if (!photoId) throw new Error('photoId is required');
   return apiRequest(`/profiles/photos/${photoId}/primary`, {
     method: "POST",
+    auth: true,
   });
 }
 
-export async function deleteProfilePhoto({ photoId }) {
-  return apiRequest(`/profiles/photos/${photoId}", {
+export async function deleteProfilePhoto(arg) {
+  const photoId = (arg && typeof arg === 'object') ? arg.photoId : arg;
+  if (!photoId) throw new Error('photoId is required');
+  return apiRequest(`/profiles/photos/${photoId}`, {
     method: "DELETE",
+    auth: true,
   });
-}
-
-export async function fetchPhotoFilterMetadata() {
-  return apiRequest("/profiles/photo-filters", { method: "GET" });
 }

@@ -1,22 +1,38 @@
 
+import { apiRequest } from "./api";
 
-// Stubbed feed service functions for static deployment
+// Feed service functions
 export async function fetchPosts() {
-	return [];
+  return apiRequest("/posts", { method: "GET" });
 }
 
-export async function createPost() {
-	throw new Error('Post creation is disabled in static mode.');
+export async function createPost({ content, image }) {
+  return apiRequest("/posts", {
+    method: "POST",
+    body: { content, imageUrl: image },
+    auth: true,
+  });
 }
 
-export async function toggleLike() {
-	throw new Error('Like feature is disabled in static mode.');
+export async function toggleLike({ postId }) {
+  return apiRequest(`/posts/${postId}/like`, {
+    method: "POST",
+    auth: true,
+  });
 }
 
-export async function reactToPost() {
-	throw new Error('Reactions are disabled in static mode.');
+export async function reactToPost({ postId, type }) {
+  return apiRequest(`/posts/${postId}/react`, {
+    method: "POST",
+    body: { type },
+    auth: true,
+  });
 }
 
-export async function addComment() {
-	throw new Error('Comments are disabled in static mode.');
+export async function addComment({ postId, content }) {
+  return apiRequest(`/posts/${postId}/comments`, {
+    method: "POST",
+    body: { content },
+    auth: true,
+  });
 }

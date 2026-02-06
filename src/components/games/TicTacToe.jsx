@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react"; 
+import PropTypes from 'prop-types';
 
 export default function TicTacToeGame({ onGameOver }) {
   const [board, setBoard] = useState(Array(9).fill(null));
@@ -21,6 +22,11 @@ export default function TicTacToeGame({ onGameOver }) {
 
   const winner = calculateWinner(board);
 
+  useEffect(() => {
+    if (winner) onGameOver?.(winner);
+    else if (board.every(Boolean)) onGameOver?.('draw');
+  }, [winner, board, onGameOver]);
+
   const handleClick = (i) => {
     if (board[i] || winner) return;
     const newBoard = [...board];
@@ -40,7 +46,7 @@ export default function TicTacToeGame({ onGameOver }) {
         {winner ? (
           <span className="text-green-600">🎉 Winner: {winner}!</span>
         ) : board.every(Boolean) ? (
-          <span className="text-orange-600">🤝 It's a Draw!</span>
+          <span className="text-orange-600">🤝 It&apos;s a Draw!</span>
         ) : (
           <span>Player Turn: <span className={isXNext ? "text-blue-600" : "text-red-600"}>{isXNext ? "X" : "O"}</span></span>
         )}
@@ -66,3 +72,7 @@ export default function TicTacToeGame({ onGameOver }) {
     </div>
   );
 }
+
+TicTacToeGame.propTypes = {
+  onGameOver: PropTypes.func,
+};

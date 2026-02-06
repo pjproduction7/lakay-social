@@ -41,3 +41,18 @@ export async function updateUserProfile({ displayName, bio, location }) {
     auth: true,
   });
 }
+
+export async function deleteUser(username) {
+  return apiRequest(`/admin/users/${encodeURIComponent(username)}`, {
+    method: "DELETE",
+    auth: true,
+  });
+}
+
+export async function adminCreateUser() {
+  throw new Error("User creation is unavailable in this static version.");
+}
+
+export async function adminChangePassword() {
+  throw new Error("Password reset is unavailable in this static version.");
+}

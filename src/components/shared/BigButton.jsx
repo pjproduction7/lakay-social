@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 export default function BigButton({ icon, label, onClick, color }) {
   return (
@@ -11,3 +12,10 @@ export default function BigButton({ icon, label, onClick, color }) {
     </button>
   );
 }
+
+BigButton.propTypes = {
+  icon: PropTypes.node,
+  label: PropTypes.string.isRequired,
+  onClick: PropTypes.func,
+  color: PropTypes.string,
+};

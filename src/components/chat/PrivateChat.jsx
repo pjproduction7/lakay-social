@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send } from 'lucide-react';
+import PropTypes from 'prop-types';
 
 export default function PrivateChat({ currentUser, otherUser, privateMessages, bannedWords, onSendMessage, isLoading }) {
   const [messageText, setMessageText] = useState('');
@@ -100,3 +101,12 @@ export default function PrivateChat({ currentUser, otherUser, privateMessages, b
     </div>
   );
 }
+
+PrivateChat.propTypes = {
+  currentUser: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
+  otherUser: PropTypes.string.isRequired,
+  privateMessages: PropTypes.array.isRequired,
+  bannedWords: PropTypes.array,
+  onSendMessage: PropTypes.func.isRequired,
+  isLoading: PropTypes.bool,
+};

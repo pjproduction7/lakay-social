@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
-  ArrowLeft, Bell, Bookmark, Camera, MessageSquare,
-  Moon, Plus, Search, Send, Shield, Star, Sun,
-  ThumbsUp, Users, Volume2, X, Gamepad2
+  Bell, Bookmark, MessageSquare,
+  Moon, Plus, Search, Shield, Star, Sun,
+  ThumbsUp, Users, Volume2, Gamepad2
 } from "lucide-react";
 
 // Components
@@ -11,15 +11,25 @@ import Shell from '../components/shared/Shell';
 import HomeButton from '../components/shared/HomeButton';
 import BigButton from '../components/shared/BigButton';
 import ChatRoom from '../components/chat/ChatRoom';
-import PrivateChat from '../components/chat/PrivateChat';
+
 import PhoneVerification from '../components/auth/PhoneVerification';
 import ChangePassword from '../components/auth/ChangePassword';
 import AdminPanel from '../components/admin/AdminPanel';
 import ModeratorDashboard from '../components/admin/ModeratorDashboard';
+
 import SnakeGame from '../components/games/SnakeGame';
 import MemoryGame from '../components/games/MemoryGame';
 import TicTacToeGame from '../components/games/TicTacToe';
 import PolicyPopup from '../components/PolicyPopup';
+import OnboardingCard from '../components/shared/OnboardingCard';
+import Feed from '../components/Feed';
+import ProfileView from '../components/ProfileView';
+import Memorials from '../components/Memorials';
+import Classmates from '../components/Classmates';
+import PrivateMessages from '../components/PrivateMessages';
+import Notifications from '../components/Notifications';
+import HomeDashboard from '../components/HomeDashboard';
+import Politics from '../components/Politics';
 import useGoogleTranslate from '../hooks/useGoogleTranslate';
 import useChatSocket from '../hooks/useChatSocket';
 
@@ -40,10 +50,11 @@ import {
   uploadProfilePhotos,
   setPrimaryProfilePhoto,
   deleteProfilePhoto,
-  fetchPhotoFilterMetadata,
 } from '../services/profilePhotos';
 import { loadState, saveState, containsProfanity, validatePassword, validateEmail, compressImage } from '../utils/helpers';
 import { BLACKLISTED_POLITICIANS } from '../utils/constants';
+import { getApiBaseUrl } from '../services/api';
+import { PHOTO_FILTERS, MAX_PROFILE_PHOTOS } from '../../shared/photoFilters';
 import {
   fetchPosts,
   createPost as createRemotePost,
@@ -51,7 +62,6 @@ import {
   reactToPost as reactToRemotePost,
   addComment as addRemoteComment,
 } from '../services/feed';
-import { PHOTO_FILTERS, MAX_PROFILE_PHOTOS } from '../../shared/photoFilters';
 
 const DEFAULT_FILTER_STYLE = PHOTO_FILTERS.find((filter) => filter.id !== "original")?.id || "original";
 const FILTER_LABEL_LOOKUP = PHOTO_FILTERS.reduce((acc, filter) => {
@@ -70,7 +80,6 @@ const readEnvValue = (keys, fallback) => {
 };
 
 const ADMIN_USERNAME = (readEnvValue(['NEXT_PUBLIC_ADMIN_USERNAME', 'VITE_ADMIN_USERNAME'], 'admin') || 'admin').toLowerCase();
-const ADMIN_PASSWORD = readEnvValue(['NEXT_PUBLIC_ADMIN_PASSWORD', 'VITE_ADMIN_PASSWORD'], 'admin123') || 'admin123';
 const rawAdminPanelEnabled = readEnvValue(
   ['NEXT_PUBLIC_ADMIN_PANEL_ENABLED', 'VITE_ADMIN_PANEL_ENABLED'],
   'true'
@@ -117,6 +126,69 @@ export default function HaitiSocialApp() {
   const [selectedFilterStyle, setSelectedFilterStyle] = useState(DEFAULT_FILTER_STYLE);
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
   const [aiFiltersEnabled, setAiFiltersEnabled] = useState(true);
+
+  // Photo delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletePhotoId, setDeletePhotoId] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const openDeleteModal = (photoId) => {
+    setDeletePhotoId(photoId);
+    setDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setDeletePhotoId(null);
+    setDeleteModalOpen(false);
+    setDeleteLoading(false);
+  };
+
+  // Pending deletion state (for optimistic undo)
+  const [pendingDelete, setPendingDelete] = useState(null);
+
+  const confirmDelete = async () => {
+    if (!deletePhotoId) return;
+    // Close modal immediately
+    setDeleteLoading(true);
+    closeDeleteModal();
+
+    // Optimistically hide the photo and schedule deletion with undo
+    let timeoutId = null;
+    const photoIdToDelete = deletePhotoId;
+
+    const doDelete = async () => {
+      try {
+        await handleDeletePhoto(photoIdToDelete);
+        pushNotif("🗑️ Photo removed");
+      } catch (err) {
+        console.error(err);
+        pushNotif(`❌ Failed to delete photo: ${err?.message || "Unknown error"}`);
+      } finally {
+        setPendingDelete(null);
+        setDeleteLoading(false);
+      }
+    };
+
+    timeoutId = setTimeout(() => doDelete(), 6000);
+
+    setPendingDelete({ photoId: photoIdToDelete, timeoutId });
+
+    const notifId = pushNotif({
+      text: 'Photo deleted',
+      actionLabel: 'Undo',
+      action: () => {
+        // cancel pending deletion
+        const pd = pendingDelete || { photoId: photoIdToDelete, timeoutId };
+        if (pd && pd.timeoutId) clearTimeout(pd.timeoutId);
+        setPendingDelete(null);
+        setDeleteLoading(false);
+        removeNotification(notifId);
+        pushNotif('❎ Deletion undone');
+      },
+    });
+
+    // If user doesn't undo within timeout, doDelete will run and remove pendingDelete
+  };
 
   // ========== SOCIAL FEED ==========
   const [posts, setPosts] = useState([]);
@@ -176,7 +248,7 @@ export default function HaitiSocialApp() {
   const hasCompletedProfile = profileProgress.steps.length > 0 && profileProgress.percent >= 100;
   const hasDismissedOnboarding = currentUser ? Boolean(onboardingDismissedUsers[currentUser.toLowerCase()]) : false;
   const shouldShowOnboardingCard = Boolean(currentUser && !hasCompletedProfile && !hasDismissedOnboarding);
-  const [searchQuery, setSearchQuery] = useState("");
+
 
   // ========== MUSIC ==========
   const [musicTracks, setMusicTracks] = useState([
@@ -222,6 +294,7 @@ export default function HaitiSocialApp() {
   // ========== MEMORIALS ==========
   const [memorials, setMemorials] = useState([]);
   const [memorialPhoto, setMemorialPhoto] = useState(null);
+  const [memorialFile, setMemorialFile] = useState(null);
   const memorialNameRef = useRef(null);
   const memorialYearsRef = useRef(null);
   const memorialTributeRef = useRef(null);
@@ -392,9 +465,15 @@ export default function HaitiSocialApp() {
     }
 
     const normalizedPhotos = Array.isArray(profile.photos)
-      ? profile.photos
+      ? profile.photos.map(photo => ({
+          ...photo,
+          photo_url: photo.photo_url ? `${getApiBaseUrl()}${photo.photo_url}` : photo.photo_url
+        }))
       : Array.isArray(profile.profile?.photos)
-        ? profile.profile.photos
+        ? profile.profile.photos.map(photo => ({
+            ...photo,
+            photo_url: photo.photo_url ? `${getApiBaseUrl()}${photo.photo_url}` : photo.photo_url
+          }))
         : [];
     const primaryPhoto = normalizedPhotos.find((photo) => photo.is_primary) || normalizedPhotos[0];
 
@@ -405,8 +484,8 @@ export default function HaitiSocialApp() {
       location: profile.location || profile.profile?.location || "",
       photoDataUrl:
         profile.photoDataUrl ||
-        profile.photo_url ||
-        primaryPhoto?.photo_url ||
+        (profile.photo_url ? `${getApiBaseUrl()}${profile.photo_url}` : "") ||
+        (primaryPhoto?.photo_url ? `${getApiBaseUrl()}${primaryPhoto.photo_url}` : "") ||
         profile.profile?.photoDataUrl ||
         "",
       photos: normalizedPhotos,
@@ -415,8 +494,15 @@ export default function HaitiSocialApp() {
 
   // ========== HELPER FUNCTIONS ==========
   
-  const pushNotif = useCallback((text) => {
-    setNotifications((prev) => [{ id: Date.now(), text }, ...prev]);
+  const pushNotif = useCallback((arg) => {
+    const id = Date.now();
+    const notif = typeof arg === 'string' ? { id, text: arg } : { id, ...arg };
+    setNotifications((prev) => [notif, ...prev]);
+    return id;
+  }, []);
+
+  const removeNotification = useCallback((id) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
   const refreshUsers = useCallback(async () => {
@@ -611,7 +697,7 @@ export default function HaitiSocialApp() {
       setIsUploadingPhotos(true);
       try {
         const filterToUse = aiFiltersEnabled ? selectedFilterStyle : "original";
-        await uploadProfilePhotos(fileList, { filterStyle: filterToUse });
+        await uploadProfilePhotos({ files: fileList });
         await loadProfile(currentUser);
         await refreshUsers();
         const usedAi = filterToUse !== "original";
@@ -631,8 +717,12 @@ export default function HaitiSocialApp() {
       if (!currentUser) {
         return;
       }
+      if (!photoId) {
+        console.warn('handleSetPrimaryPhoto called without photoId');
+        return;
+      }
       try {
-        await setPrimaryProfilePhoto(photoId);
+        await setPrimaryProfilePhoto({ photoId });
         await loadProfile(currentUser);
         await refreshUsers();
         pushNotif("⭐ Primary photo updated");
@@ -644,22 +734,53 @@ export default function HaitiSocialApp() {
     [currentUser, loadProfile, refreshUsers, pushNotif]
   );
 
+  const handleSaveProfile = async (u) => {
+    if (!currentUser) {
+      pushNotif("⚠️ Please log in to update your profile");
+      return;
+    }
+
+    try {
+      await updateUserProfile({
+        displayName: editDisplayName || currentUser,
+        bio: editBio,
+        location: editLocation,
+      });
+
+      setProfiles((prev) => ({
+        ...prev,
+        [u]: { ...(prev[u] || {}), displayName: editDisplayName, bio: editBio, location: editLocation },
+      }));
+
+      await loadProfile(currentUser);
+      await refreshUsers();
+      pushNotif("✅ Profile updated!");
+      setTimeout(() => setScreen("home"), 1000);
+    } catch (err) {
+      pushNotif(`❌ Failed to update profile: ${err?.message || "Unknown error"}`);
+    }
+  };
+
   const handleDeletePhoto = useCallback(
     async (photoId) => {
       if (!currentUser) {
         return;
       }
+      if (!photoId) {
+        console.warn('handleDeletePhoto called without photoId');
+        throw new Error('photoId is required');
+      }
+
       try {
-        await deleteProfilePhoto(photoId);
+        await deleteProfilePhoto({ photoId });
         await loadProfile(currentUser);
         await refreshUsers();
-        pushNotif("🗑️ Photo removed");
       } catch (err) {
         console.error(err);
-        pushNotif(`❌ Failed to delete photo: ${err?.message || "Unknown error"}`);
+        throw err;
       }
     },
-    [currentUser, loadProfile, refreshUsers, pushNotif]
+    [currentUser, loadProfile, refreshUsers]
   );
 
   const openProfile = (user) => {
@@ -828,10 +949,8 @@ export default function HaitiSocialApp() {
   useEffect(() => {
     const bootstrapFilterMetadata = async () => {
       try {
-        const meta = await fetchPhotoFilterMetadata();
-        if (typeof meta?.aiEnabled === "boolean") {
-          setAiFiltersEnabled(meta.aiEnabled);
-        }
+        // Photo filters are static and always available
+        setAiFiltersEnabled(true);
       } catch (err) {
         console.warn("Failed to load filter metadata", err);
       }
@@ -911,7 +1030,7 @@ export default function HaitiSocialApp() {
       let result;
       if (isLogin) {
         try {
-          result = await login({ username: cleanUsername, password: cleanPassword });
+          result = await login({ username: normalizedUsername, password: cleanPassword });
         } catch (loginError) {
           const msg = loginError?.message || "Login failed";
           setAuthError(msg);
@@ -921,7 +1040,7 @@ export default function HaitiSocialApp() {
       } else {
         try {
           result = await signup({ 
-            username: cleanUsername, 
+            username: normalizedUsername, 
             password: cleanPassword,
             email: email.trim()
           });
@@ -1205,29 +1324,77 @@ export default function HaitiSocialApp() {
 
   // ========== MEMORIAL HANDLERS ==========
 
-  const handleCreateMemorial = () => {
+  const handleCreateMemorial = async () => {
     const name = memorialNameRef.current?.value || "";
+    const years = memorialYearsRef.current?.value || "";
     const tribute = memorialTributeRef.current?.value || "";
-    
+
     if (!name.trim() || !tribute.trim()) {
       pushNotif("⚠️ Please fill in name and tribute");
       return;
     }
 
-    const newPost = {
-      lookingFor: classmateName.trim(),
-      year: classmateYear.trim(),
-      message: classmateMessage.trim(),
-      createdAt: Date.now(),
-      replies: [],
-    };
+    try {
+      let imageUrl = null;
 
-    setClassmatesPosts(prev => [newPost, ...prev]);
-    setClassmateName("");
-    setClassmateYear("");
-    setClassmateMessage("");
-    pushNotif("🎓 Classmate request posted!");
+      if (memorialFile) {
+        setIsUploadingPhotos(true);
+        const uploadRes = await uploadProfilePhotos({ files: [memorialFile] });
+        setIsUploadingPhotos(false);
+        if (uploadRes && uploadRes.photos && uploadRes.photos.length > 0) {
+          imageUrl = uploadRes.photos[0].photo_url;
+        }
+      }
+
+      const content = `${name}${years ? ` (${years})` : ""}\n\n${tribute}`;
+      const created = await createRemotePost({ content, image: imageUrl });
+
+      // Normalize into a memorial object used by the Memorials list
+      const newMemorial = {
+        id: created?.id || `mem_${Date.now()}`,
+        name: name.trim(),
+        years: years.trim(),
+        tribute: tribute.trim(),
+        photo: imageUrl || null,
+        author: currentUser || created?.user || 'Anonymous',
+        timestamp: created?.timestamp || Date.now(),
+        condolences: [],
+      };
+
+      setMemorials(prev => [newMemorial, ...(prev || [])]);
+
+      // Clear inputs
+      if (memorialNameRef.current) memorialNameRef.current.value = "";
+      if (memorialYearsRef.current) memorialYearsRef.current.value = "";
+      if (memorialTributeRef.current) memorialTributeRef.current.value = "";
+      setMemorialPhoto(null);
+      setMemorialFile(null);
+
+      pushNotif("✅ Memorial created");
+    } catch (err) {
+      setIsUploadingPhotos(false);
+      console.error('Failed to create memorial', err);
+      pushNotif(`❌ Failed to create memorial: ${err.message || 'Server error'}`);
+    }
   };
+
+  const handleAddCondolence = useCallback((memorialId, text) => {
+    if (!text || !text.trim()) return;
+
+    setMemorials(prev => prev.map(m => {
+      if (m.id === memorialId) {
+        const newCond = {
+          id: `c_${Date.now()}`,
+          author: currentUser || 'Anonymous',
+          text: text.trim(),
+        };
+        return { ...m, condolences: [...(m.condolences || []), newCond] };
+      }
+      return m;
+    }));
+
+    pushNotif('💐 Condolence posted!');
+  }, [currentUser, pushNotif]);
 
   const handleAddSchool = () => {
     if (!newSchoolName.trim() || !newSchoolCity.trim() || !newSchoolDepartment.trim()) {
@@ -1429,7 +1596,7 @@ export default function HaitiSocialApp() {
               }} 
               className="w-full text-blue-600 font-semibold hover:underline"
             >
-              {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Login"}
+              {isLogin ? "Do not have an account? Sign Up" : "Already have an account? Login"}
             </button>
           </div>
         </div>
@@ -1484,297 +1651,30 @@ export default function HaitiSocialApp() {
   
   if (screen === "home") {
     return (
-      <div className={`min-h-screen ${bgColor} ${textColor}`}>
-        <div className="max-w-2xl mx-auto p-4">
-          {onboardingModalOpen && shouldShowOnboardingCard && (
-            <div className={`${cardBg} rounded-2xl p-5 shadow-xl border border-white/10 mb-6`}>
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <div>
-                    <p className="text-sm text-white/70 font-semibold">Complete your profile</p>
-                    <h3 className="text-3xl font-black text-white">{profileProgress.percent}% done</h3>
-                  </div>
-                  <div className="flex-1">
-                    <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-400"
-                        style={{ width: `${profileProgress.percent}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-[1fr_auto] gap-4">
-                  <div>
-                    {pendingProfileSteps.length === 0 ? (
-                      (<p className="text-white/70 text-sm">All steps completed. Great job!</p>)
-                    ) : (
-                      (<ul className="space-y-2 text-sm text-white/90">
-                        {pendingProfileSteps.slice(0, 3).map((step) => (
-                          <li key={step.id} className="flex items-center gap-2">
-                            <span className="text-yellow-300">•</span>
-                            <span>{step.label}</span>
-                          </li>
-                        ))}
-                        {pendingProfileSteps.length > 3 && (
-                          <li className="text-xs text-white/60">
-                            +{pendingProfileSteps.length - 3} more
-                          </li>
-                        )}
-                      </ul>)
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-2 min-w-[160px]">
-                    <button
-                      onClick={() => {
-                        setOnboardingModalOpen(false);
-                        setScreen("profile");
-                      }}
-                      className="bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-2.5 rounded-xl"
-                    >
-                      Finish profile
-                    </button>
-                    <button
-                      onClick={handleDismissOnboarding}
-                      className="bg-transparent border border-white/20 text-white/80 hover:text-white font-semibold py-2.5 rounded-xl"
-                    >
-                      Hide tip
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {showPhoneModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-              <PhoneVerification
-                onVerified={(phone) => {
-                  setProfiles(prev => ({
-                    ...prev,
-                    [currentUser]: {
-                      ...(prev[currentUser] || {}),
-                      phone,
-                      phoneVerified: true,
-                    }
-                  }));
-                  setShowPhoneModal(false);
-                  pushNotif("✅ Phone verified!");
-                }}
-                onClose={() => setShowPhoneModal(false)}
-              />
-            </div>
-          )}
-
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <SpinningLogo />
-              <h1 className="text-3xl font-bold logo-glow">Lakay Social</h1>
-            </div>
-            <div className="flex gap-3 items-center flex-wrap">
-              <div 
-                onClick={() => setDarkMode(!darkMode)} 
-                className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 cursor-pointer"
-                role="button"
-                tabIndex={0}
-                aria-label="Toggle dark mode"
-                onKeyPress={e => { if (e.key === 'Enter' || e.key === ' ') setDarkMode(!darkMode); }}
-              >
-          {shouldShowOnboardingCard && (
-            <div className={`${cardBg} rounded-2xl p-5 shadow-xl border border-white/10 mb-6`}>
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <div>
-                    <p className="text-sm text-white/70 font-semibold">Complete your profile</p>
-                    <h3 className="text-3xl font-black text-white">{profileProgress.percent}% done</h3>
-                  </div>
-                  <div className="flex-1">
-                    <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-400"
-                        style={{ width: `${profileProgress.percent}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-[1fr_auto] gap-4">
-                  <div>
-                    {pendingProfileSteps.length === 0 ? (
-                      <p className="text-white/70 text-sm">All steps completed. Great job!</p>
-                    ) : (
-                      <ul className="space-y-2 text-sm text-white/90">
-                        {pendingProfileSteps.slice(0, 3).map((step) => (
-                          <li key={step.id} className="flex items-center gap-2">
-                            <span className="text-yellow-300">•</span>
-                            <span>{step.label}</span>
-                          </li>
-                        ))}
-                        {pendingProfileSteps.length > 3 && (
-                          <li className="text-xs text-white/60">
-                            +{pendingProfileSteps.length - 3} more
-                          </li>
-                        )}
-                      </ul>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-2 min-w-[160px]">
-                    <button
-                      onClick={() => {
-                        setOnboardingModalOpen(false);
-                        setScreen("profile");
-                      }}
-                      className="bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-2.5 rounded-xl"
-                    >
-                      Finish profile
-                    </button>
-                    <button
-                      onClick={handleDismissOnboarding}
-                      className="bg-transparent border border-white/20 text-white/80 hover:text-white font-semibold py-2.5 rounded-xl"
-                    >
-                      Hide tip
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-              </div>
-
-              <select
-                value={language}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setLanguageState(v);
-                  setLanguage(v);
-                }}
-                className="px-2 py-1 rounded bg-white text-black"
-              >
-                <option value="en">EN</option>
-                <option value="ht">HT</option>
-                <option value="fr">FR</option>
-                <option value="es">ES</option>
-              </select>
-
-              <button 
-                onClick={() => setScreen("notifications")} 
-                className="relative hover:scale-110 transition"
-              >
-                <Bell size={24} />
-                {notifications.length > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                    {Math.min(notifications.length, 9)}
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => openProfile(currentUser)}
-                className="text-sm px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
-              >
-                My Profile
-              </button>
-
-              <button
-                onClick={handleLogout}
-                className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 font-semibold text-sm"
-              >
-                {trans.logout}
-              </button>
-            </div>
-          </div>
-
-          {shouldShowOnboardingCard && (
-            <div className={`${cardBg} rounded-2xl p-5 shadow-xl border border-white/10 mb-6`}>
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <div>
-                    <p className="text-sm text-white/70 font-semibold">Complete your profile</p>
-                    <h3 className="text-3xl font-black text-white">{profileProgress.percent}% done</h3>
-                  </div>
-                  <div className="flex-1">
-                    <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                      <div
-                        className="h-full bg-emerald-400"
-                        style={{ width: `${profileProgress.percent}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-[1fr_auto] gap-4">
-                  <div>
-                    {pendingProfileSteps.length === 0 ? (
-                      <p className="text-white/70 text-sm">All steps completed. Great job!</p>
-                    ) : (
-                      <ul className="space-y-2 text-sm text-white/90">
-                        {pendingProfileSteps.slice(0, 3).map((step) => (
-                          <li key={step.id} className="flex items-center gap-2">
-                            <span className="text-yellow-300">•</span>
-                            <span>{step.label}</span>
-                          </li>
-                        ))}
-                        {pendingProfileSteps.length > 3 && (
-                          <li className="text-xs text-white/60">
-                            +{pendingProfileSteps.length - 3} more
-                          </li>
-                        )}
-                      </ul>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-2 min-w-[160px]">
-                    <button
-                      onClick={() => {
-                        setOnboardingModalOpen(false);
-                        setScreen("profile");
-                      }}
-                      className="bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-2.5 rounded-xl"
-                    >
-                      Finish profile
-                    </button>
-                    <button
-                      onClick={handleDismissOnboarding}
-                      className="bg-transparent border border-white/20 text-white/80 hover:text-white font-semibold py-2.5 rounded-xl"
-                    >
-                      Hide tip
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Main Navigation */}
-          <div className="grid grid-cols-4 gap-3 mb-4">
-            <HomeButton icon={<Search size={28} />} label={trans.search} onClick={() => setScreen("search")} color="bg-blue-600" />
-            <HomeButton icon={<Star size={28} />} label={trans.saved} onClick={() => setScreen("saved")} color="bg-purple-600" />
-            <div className="relative">
-              <HomeButton 
-                icon={<MessageSquare size={28} />} 
-                label={trans.privateMessages} 
-                onClick={() => setScreen("privateMessages")} 
-                color="bg-teal-600" 
-              />
-              {getTotalUnreadCount() > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
-                  {getTotalUnreadCount()}
-                </span>
-              )}
-            </div>
-            <HomeButton icon={<Users size={28} />} label={trans.friends} onClick={() => setScreen("friends")} color="bg-green-600" />
-          </div>
-
-          <div className="grid grid-cols-4 gap-3 mb-4">
-            <HomeButton icon={<MessageSquare size={28} />} label={trans.feed} onClick={() => setScreen("feed")} color="bg-indigo-600" />
-            <HomeButton icon={<MessageSquare size={28} />} label={trans.chat} onClick={() => setScreen("chat")} color="bg-pink-600" />
-            <HomeButton icon={<Users size={28} />} label="All Users" onClick={() => setScreen("allUsers")} color="bg-cyan-600" />
-            <HomeButton icon={<Users size={28} />} label={trans.classmates} onClick={() => setScreen("classmates")} color="bg-blue-500" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <BigButton icon={<span className="text-4xl">🗳️</span>} label="Haiti Politics" onClick={() => setScreen("politics")} color="bg-blue-700" />
-            <BigButton icon={<span className="text-4xl">💐</span>} label="Memorials" onClick={() => setScreen("memorials")} color="bg-purple-700" />
-          </div>
+      <HomeDashboard
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
+        language={language}
+        setLanguage={(v) => { setLanguageState(v); setLanguage(v); }}
+        showPhoneModal={showPhoneModal}
+        setShowPhoneModal={setShowPhoneModal}
+        notifications={notifications}
+        getTotalUnreadCount={getTotalUnreadCount}
+        setScreen={setScreen}
+        openProfile={openProfile}
+        currentUser={currentUser}
+        isAdmin={isAdmin}
+        ADMIN_PANEL_ENABLED={ADMIN_PANEL_ENABLED}
+        pushNotif={pushNotif}
+        handleLogout={handleLogout}
+        setShowAdminPanel={setShowAdminPanel}
+        pendingProfileSteps={pendingProfileSteps}
+        profileProgress={profileProgress}
+        shouldShowOnboardingCard={shouldShowOnboardingCard}
+        setOnboardingModalOpen={setOnboardingModalOpen}
+      />
+    );
+  }
 
           <div className="grid grid-cols-2 gap-4 mb-6">
             <BigButton icon={<Volume2 size={32} />} label={trans.music} onClick={() => setScreen("music")} color="bg-pink-500" />
@@ -1813,313 +1713,36 @@ export default function HaitiSocialApp() {
   }
 
   if (screen === "partnerHub") {
-    const spotlightStats = [
-      { label: "Active diaspora members", value: "25k+" },
-      { label: "Avg. daily impressions", value: "180k" },
-      { label: "Countries represented", value: "32" },
-    ];
-
-    const ctaSections = [
-      {
-        title: "Advertise With Lakay",
-        emoji: "📣",
-        description:
-          "Promote your brand to Haitians at home and abroad with native placements, sponsored stories, and live activations.",
-        bullets: [
-          "Hero takeovers and in-feed sponsorships",
-          "Segmented messaging by diaspora city or Haitian department",
-          "Weekly performance recap with actionable next steps",
-        ],
-        actionLabel: "Request media kit",
-        actionLink: "mailto:ads@lakaysocial.com",
-        note: "ads@lakaysocial.com",
-      },
-      {
-        title: "Contact Our Team",
-        emoji: "💬",
-        description:
-          "Need support, press materials, or a custom partnership idea? Our core team replies within one business day.",
-        bullets: [
-          "Chat with a bilingual community manager",
-          "Schedule a product demo via Zoom",
-          "Get help migrating your existing community",
-        ],
-        actionLabel: "Book a call",
-        actionLink: "https://cal.com/lakay-team/30min",
-        note: "hello@lakaysocial.com",
-      },
-      {
-        title: "Join & Collaborate",
-        emoji: "🌱",
-        description:
-          "From non-profits to student leaders, we welcome people who want to build unity across Ayiti and the diaspora.",
-        bullets: [
-          "Community moderators & ambassadors",
-          "University + alumni chapter pilots",
-          "Joint hackathons, livestreams, and pop-up labs",
-        ],
-        actionLabel: "Apply to collaborate",
-        actionLink: "mailto:partners@lakaysocial.com",
-        note: "partners@lakaysocial.com",
-      },
-    ];
-
-    const contactTiles = [
-      { label: "Media & ads", value: "ads@lakaysocial.com" },
-      { label: "Partnerships", value: "partners@lakaysocial.com" },
-      { label: "Community care", value: "+1 (786) 555-2034" },
-    ];
-
     return (
       <Shell title={`🤝 ${trans.partnerHub}`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-        <div className="space-y-6">
-          <div className="bg-gradient-to-br from-orange-600 via-pink-600 to-purple-700 rounded-2xl p-6 shadow-2xl border border-white/10">
-            <p className="text-white/80 text-sm font-semibold uppercase tracking-wide mb-2">
-              Grow with the Lakay network
-            </p>
-            <h2 className="text-3xl font-black text-white mb-3">
-              Advertise, connect, and build with Haitians everywhere
-            </h2>
-            <p className="text-white/80 text-lg mb-6">
-              Pick the path that fits your goal—brand awareness, community engagement, or strategic partnerships.
-            </p>
-            <div className="grid md:grid-cols-3 gap-4">
-              {spotlightStats.map((stat) => (
-                <div key={stat.label} className="bg-white/10 rounded-2xl p-4 text-center border border-white/10">
-                  <div className="text-3xl font-black text-white">{stat.value}</div>
-                  <p className="text-white/70 text-sm mt-1">{stat.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {ctaSections.map((section) => (
-            <section
-              key={section.title}
-              className="bg-white/10 backdrop-blur rounded-2xl p-6 border border-white/10 shadow-xl"
-            >
-              <div className="flex flex-col md:flex-row md:items-center gap-4">
-                <div className="flex-1">
-                  <div className="text-4xl mb-3">{section.emoji}</div>
-                  <h3 className="text-2xl font-bold text-white mb-2">{section.title}</h3>
-                  <p className="text-white/70 mb-4 leading-relaxed">{section.description}</p>
-                  <ul className="space-y-2">
-                    {section.bullets.map((bullet) => (
-                      <li key={bullet} className="flex items-start gap-2 text-white/85">
-                        <span className="text-green-400">✔</span>
-                        <span>{bullet}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="md:w-60 space-y-3">
-                  <a
-                    href={section.actionLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={() => pushNotif?.("✉️ We just opened a new conversation")}
-                    className="block text-center w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold py-3 rounded-xl shadow-lg hover:scale-105 transition"
-                  >
-                    {section.actionLabel}
-                  </a>
-                  <div className="text-white/60 text-sm text-center border border-white/10 rounded-xl py-2 px-3">
-                    {section.note}
-                  </div>
-                </div>
-              </div>
-            </section>
-          ))}
-
-          <div className="bg-black/40 rounded-2xl p-6 border border-white/10">
-            <h4 className="text-white text-xl font-semibold mb-4">Quick contacts</h4>
-            <div className="grid md:grid-cols-3 gap-4">
-              {contactTiles.map((tile) => (
-                <div key={tile.label} className="bg-white/5 rounded-xl p-4 border border-white/5 text-white">
-                  <p className="text-xs uppercase tracking-wide text-white/50 mb-1">{tile.label}</p>
-                  <p className="text-lg font-semibold break-all">{tile.value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <PartnerHub pushNotif={pushNotif} />
       </Shell>
     );
   }
 
   // ========== RENDER: FEED ==========
-  
+
   if (screen === "feed") {
     return (
       <Shell title={`📱 ${trans.feed}`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-        {/* Create Post */}
-        <div className="bg-gradient-to-br from-purple-600 via-pink-500 to-red-500 rounded-2xl p-6 mb-6 shadow-2xl">
-          <h3 className="font-bold text-white text-2xl mb-4">✨ Create a Post</h3>
-          
-          <textarea
-            ref={postTextRef}
-            defaultValue={postText}
-            placeholder={trans.createPostPlaceholder}
-            className="w-full p-4 rounded-xl border-4 border-white/50 text-gray-900 mb-4 text-lg font-semibold"
-            rows={3}
-          />
-
-          {postImage && (
-            <div className="mb-4 relative">
-              <img src={postImage} alt="Preview" className="w-full max-h-60 object-cover rounded-xl border-4 border-white/50 shadow-lg" />
-              <button
-                onClick={() => setPostImage(null)}
-                className="absolute top-4 right-4 bg-red-500 text-white rounded-full p-2 hover:bg-red-600"
-              >
-                <X size={24} />
-              </button>
-            </div>
-          )}
-
-          <div className="flex gap-3">
-            <input
-              id={postImageInputId}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageUpload}
-            />
-            <label
-              htmlFor={postImageInputId}
-              className="flex-1 bg-white text-purple-700 py-3 px-6 rounded-xl cursor-pointer hover:scale-105 transition text-center font-bold"
-            >
-              <Camera size={24} className="inline mr-2" />
-              Add Photo
-            </label>
-            <button
-              onClick={handleCreatePost}
-              className="flex-1 bg-white text-pink-700 py-3 px-6 rounded-xl hover:scale-105 transition font-bold"
-            >
-              Post 🚀
-            </button>
-          </div>
-        </div>
-
-        {/* Posts Feed */}
-        <div className="space-y-6">
-          {posts.length === 0 ? (
-            <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-12 text-center shadow-2xl">
-              <MessageSquare size={64} className="mx-auto mb-4 text-white" />
-              <p className="text-white text-xl font-bold">No posts yet. Be the first to share!</p>
-            </div>
-          ) : (
-            posts.map((post) => (
-              <div key={post.id} className="bg-gradient-to-br from-yellow-400 via-orange-400 to-red-400 rounded-2xl p-6 shadow-2xl border-4 border-white/50">
-                {/* Post Header */}
-                <div className="flex items-center gap-3 mb-4">
-                  <div
-                    className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold cursor-pointer border-4 border-white shadow-lg text-xl"
-                    onClick={() => openProfile(post.user)}
-                  >
-                    {post.user[0].toUpperCase()}
-                  </div>
-                  <div className="flex-1">
-                    <div
-                      className="font-bold text-white text-lg cursor-pointer hover:underline"
-                      onClick={() => openProfile(post.user)}
-                    >
-                      {post.user}
-                    </div>
-                    <div className="text-sm text-white/80">
-                      {new Date(post.timestamp).toLocaleString()}
-                    </div>
-                  </div>
-                  <button onClick={() => toggleSave(`post:${post.id}`)} className="text-white hover:scale-110 transition">
-                    <Bookmark size={24} />
-                  </button>
-                </div>
-
-                {/* Post Content */}
-                <p className="text-white text-lg font-semibold mb-4 bg-black/20 rounded-xl p-4">{post.content}</p>
-
-                {/* Post Image */}
-                {post.image && (
-                  <img src={post.image} alt="Post" className="w-full max-h-96 object-cover rounded-xl mb-4 border-4 border-white shadow-lg" />
-                )}
-
-                {/* Interactions */}
-                <div className="mb-4 pb-4 border-b-4 border-white/30">
-                  <div className="flex items-center gap-4 mb-3">
-                    <button
-                      onClick={() => handleToggleLike(post.id)}
-                      className={`flex items-center gap-2 text-lg font-bold ${
-                        post.likes.includes(currentUser) ? "text-red-600 scale-110" : "text-white hover:scale-110"
-                      } transition`}
-                    >
-                      {post.likes.includes(currentUser) ? "❤️" : "🤍"}
-                      <span>{post.likes.length} {post.likes.length === 1 ? "Like" : "Likes"}</span>
-                    </button>
-                    <button className="flex items-center gap-2 text-white hover:scale-110 transition font-bold text-lg">
-                      <MessageSquare size={24} />
-                      <span>{post.comments.length} {post.comments.length === 1 ? "Comment" : "Comments"}</span>
-                    </button>
-                  </div>
-                  
-                  {/* Emoji Reactions */}
-                  <div className="flex gap-3 text-2xl">
-                    <button onClick={() => handleReaction(post.id, 'like')} className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition">
-                      👍 <span className="text-sm font-bold">{post.reactions.like}</span>
-                    </button>
-                    <button onClick={() => handleReaction(post.id, 'love')} className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition">
-                      ❤️ <span className="text-sm font-bold">{post.reactions.love}</span>
-                    </button>
-                    <button onClick={() => handleReaction(post.id, 'haha')} className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition">
-                      😂 <span className="text-sm font-bold">{post.reactions.haha}</span>
-                    </button>
-                    <button onClick={() => handleReaction(post.id, 'fire')} className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition">
-                      🔥 <span className="text-sm font-bold">{post.reactions.fire}</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Comments */}
-                <div className="space-y-3 mb-4">
-                  {post.comments.map((comment, idx) => (
-                    <div key={idx} className="flex gap-3">
-                      <div
-                        className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center text-white text-sm font-bold cursor-pointer flex-shrink-0 border-2 border-white"
-                        onClick={() => openProfile(comment.user)}
-                      >
-                        {comment.user[0].toUpperCase()}
-                      </div>
-                      <div className="flex-1 bg-white rounded-xl p-3 shadow-lg">
-                        <div
-                          className="font-bold text-sm cursor-pointer hover:text-blue-600"
-                          onClick={() => openProfile(comment.user)}
-                        >
-                          {comment.user}
-                        </div>
-                        <div className="text-sm text-gray-800">{comment.text}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Add Comment */}
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    ref={(el) => { commentRefs.current[post.id] = el; }}
-                    defaultValue={commentTexts[post.id] || ""}
-                    placeholder="Write a comment..."
-                    className="flex-1 p-3 rounded-xl border-4 border-white/50 text-gray-900 font-semibold"
-                    onKeyDown={(e) => e.key === "Enter" && handleAddComment(post.id)}
-                  />
-                  <button
-                    onClick={() => handleAddComment(post.id)}
-                    className="bg-white px-6 rounded-xl hover:scale-110 transition text-orange-600 font-bold"
-                  >
-                    <Send size={24} />
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        <Feed
+          trans={trans}
+          postTextRef={postTextRef}
+          postText={postText}
+          postImage={postImage}
+          postImageInputId={postImageInputId}
+          handleImageUpload={handleImageUpload}
+          handleCreatePost={handleCreatePost}
+          posts={posts}
+          openProfile={openProfile}
+          currentUser={currentUser}
+          toggleSave={toggleSave}
+          handleToggleLike={handleToggleLike}
+          handleReaction={handleReaction}
+          commentRefs={commentRefs}
+          commentTexts={commentTexts}
+          handleAddComment={handleAddComment}
+        />
       </Shell>
     );
   }    
@@ -2129,55 +1752,14 @@ export default function HaitiSocialApp() {
   if (screen === "music") {
     return (
       <Shell title={`${trans.music} 🎵`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-        <div className="flex justify-end mb-4">
-          <button onClick={handleMusicUpload} className="bg-pink-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-pink-700">
-            <Plus size={20} /> Upload Music
-          </button>
-        </div>
-
-        {musicTracks.map((track) => (
-          <div key={track.id} className={`${cardBg} rounded-xl p-4 mb-4 shadow-lg`}>
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-16 h-16 bg-gradient-to-br from-pink-500 to-purple-600 rounded-lg flex items-center justify-center text-3xl">🎵</div>
-              <div className="flex-1">
-                <h3 className="font-bold text-lg text-gray-900">{track.title}</h3>
-                <p 
-                  className="text-sm text-blue-600 cursor-pointer hover:underline"
-                  onClick={() => openProfile(track.artist)}
-                >
-                  by {track.artist}
-                </p>
-              </div>
-              <button onClick={() => toggleSave(`music:${track.id}`)} title="Save">
-                <Bookmark className="text-gray-600 hover:text-black" />
-              </button>
-            </div>
-
-            {track.audioUrl && (
-              <div className="mb-3">
-                <audio controls className="w-full">
-                  <source src={track.audioUrl} type="audio/mpeg" />
-                  Your browser does not support audio playback.
-                </audio>
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setMusicTracks((prev) => prev.map((t) => (t.id === track.id ? { ...t, likes: t.likes + 1 } : t)))}
-                className="flex-1 bg-green-500 text-white py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-green-600"
-              >
-                <ThumbsUp size={18} /> {track.likes}
-              </button>
-              <button
-                onClick={() => setMusicTracks((prev) => prev.map((t) => (t.id === track.id ? { ...t, dislikes: t.dislikes + 1 } : t)))}
-                className="flex-1 bg-red-500 text-white py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-red-600"
-              >
-                <ThumbsUp size={18} className="rotate-180" /> {track.dislikes}
-              </button>
-            </div>
-          </div>
-        ))}
+        <Music
+          tracks={musicTracks}
+          onUpload={handleMusicUpload}
+          onToggleSave={(id) => toggleSave(id)}
+          onLike={(id) => setMusicTracks((prev) => prev.map((t) => (t.id === id ? { ...t, likes: t.likes + 1 } : t)))}
+          onDislike={(id) => setMusicTracks((prev) => prev.map((t) => (t.id === id ? { ...t, dislikes: t.dislikes + 1 } : t)))}
+          openProfile={openProfile}
+        />
       </Shell>
     );
   }
@@ -2187,25 +1769,7 @@ export default function HaitiSocialApp() {
   if (screen === "games") {
     return (
       <Shell title={`🎮 ${trans.games}`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-        <div className="grid grid-cols-2 gap-4">
-          {["snake", "memory", "tictactoe"].map((game) => (
-            <button
-              key={game}
-              onClick={() => {
-                setSelectedGame(game);
-                setScreen("game");
-              }}
-              className="bg-gradient-to-br from-blue-500 to-purple-600 text-white rounded-xl p-8 shadow-lg hover:scale-105 transition"
-            >
-              <div className="text-6xl mb-3">
-                {game === "snake" ? "🐍" : game === "memory" ? "🧠" : "⭕"}
-              </div>
-              <div className="font-bold text-lg">
-                {game === "snake" ? "Snake" : game === "memory" ? "Memory" : "Tic Tac Toe"}
-              </div>
-            </button>
-          ))}
-        </div>
+        <GamesMenu onSelectGame={(game) => { setSelectedGame(game); setScreen('game'); }} />
       </Shell>
     );
   }
@@ -2284,63 +1848,20 @@ export default function HaitiSocialApp() {
   if (screen === "privateMessages") {
     return (
       <Shell title={`✉️ ${trans.privateMessages}`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-        {!currentChatUser ? (
-          <div>
-            <h3 className="text-lg font-bold mb-4 text-white">Select user to message:</h3>
-            {otherUsers.length === 0 ? (
-              <div className={`${cardBg} rounded-xl p-4 shadow text-center text-gray-200`}>
-                No other users are online yet. Create accounts from the admin panel or invite friends to start chatting.
-              </div>
-            ) : (
-              otherUsers.map((user) => {
-                const unreadCount = getUnreadCount(user);
-                const isOnline = onlineUsersSet.has(user.toLowerCase());
-                return (
-                  <button
-                    key={user}
-                    onClick={() => {
-                      setCurrentChatUser(user);
-                      markMessagesAsRead(user);
-                    }}
-                    className={`w-full ${cardBg} p-4 rounded-xl mb-3 shadow flex items-center gap-3 hover:scale-105 transition relative`}
-                  >
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
-                      {user[0]}
-                    </div>
-                    <div className="flex-1 text-left">
-                      <div className="font-bold text-gray-900">{user}</div>
-                      <div className="text-sm text-gray-600 flex items-center gap-2">
-                        <span>Send private message</span>
-                        {isOnline && <span className="inline-flex items-center text-green-600 text-xs font-semibold">● Online</span>}
-                      </div>
-                    </div>
-                    {unreadCount > 0 && (
-                      <span className="bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
-                        {unreadCount}
-                      </span>
-                    )}
-                    <MessageSquare className="text-gray-400" />
-                  </button>
-                );
-              })
-            )}
-          </div>
-        ) : (
-          <div>
-            <button onClick={() => setCurrentChatUser(null)} className="mb-4 text-white flex items-center gap-2 hover:underline">
-              <ArrowLeft size={16} /> Back to contacts
-            </button>
-
-            <PrivateChat
-              currentUser={currentUser}
-              otherUser={currentChatUser}
-              privateMessages={privateMessages}
-              bannedWords={[]}
-              isLoading={loadingPrivateMessages}
-              onSendMessage={(message) => handleSendPrivateChatMessage(currentChatUser, message)}
-            />
-          </div>
-        )}
+        <PrivateMessages
+          currentUser={currentUser}
+          currentChatUser={currentChatUser}
+          setCurrentChatUser={setCurrentChatUser}
+          otherUsers={otherUsers}
+          privateMessages={privateMessages}
+          loadingPrivateMessages={loadingPrivateMessages}
+          onSendMessage={handleSendPrivateChatMessage}
+          onlineUsersSet={onlineUsersSet}
+          getUnreadCount={getUnreadCount}
+          setScreen={setScreen}
+          markMessagesAsRead={markMessagesAsRead}
+          openProfile={openProfile}
+        />
       </Shell>
     );
   }
@@ -2350,39 +1871,10 @@ export default function HaitiSocialApp() {
   if (screen === "notifications") {
     return (
       <Shell title={`🔔 ${trans.notifications}`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-        <div className={`${cardBg} rounded-xl p-4 shadow mb-4 flex items-center justify-between`}>
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">Recent Notifications</h3>
-            <p className="text-sm text-gray-600">Stay up to date with everything happening on Lakay.</p>
-          </div>
-          {notifications.length > 0 && (
-            <button
-              onClick={() => setNotifications([])}
-              className="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700"
-            >
-              Clear All
-            </button>
-          )}
-        </div>
-
-        {notifications.length === 0 ? (
-          <div className={`${cardBg} rounded-xl p-8 text-center shadow`}> 
-            <Bell size={48} className="mx-auto mb-4 text-gray-500" />
-            <p className="text-gray-600 font-semibold">No notifications yet. We'll let you know when something happens!</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {notifications.map((notif) => (
-              <div key={notif.id} className={`${cardBg} rounded-xl p-4 shadow flex items-start gap-3`}>
-                <Bell size={20} className="text-yellow-500 mt-1" />
-                <div>
-                  <p className="text-gray-900 font-semibold">{notif.text}</p>
-                  <p className="text-xs text-gray-500">{new Date(notif.id).toLocaleString()}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <Notifications notifications={notifications} removeNotification={(id) => {
+          if (id === 'all') return setNotifications([]);
+          removeNotification(id);
+        }} />
       </Shell>
     );
   }
@@ -2392,55 +1884,16 @@ export default function HaitiSocialApp() {
   if (screen === "friends") {
     return (
       <Shell title={`👥 ${trans.friends}`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-        <div>
-          {otherUsers.length === 0 ? (
-            <div className={`${cardBg} rounded-xl p-6 text-center text-gray-200`}>
-              No friends to show yet. Invite new users or create them from the admin panel to build your community.
-            </div>
-          ) : (
-            otherUsers.map((user) => (
-              <div key={user} className={`${cardBg} rounded-xl p-4 mb-3 shadow flex items-center justify-between`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white text-xl font-bold">
-                    {user[0].toUpperCase()}
-                  </div>
-                  <div className="font-bold text-gray-900 text-lg">{user}</div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => openProfile(user)}
-                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-semibold"
-                  >
-                    View
-                  </button>
-                  {user !== currentUser && (
-                    <button
-                      onClick={() => setFollowing((prev) => ({ ...prev, [user]: !prev[user] }))}
-                      className={`px-6 py-2 rounded-lg font-bold transition ${
-                        following[user]
-                          ? "bg-gray-300 text-gray-900"
-                          : "bg-blue-500 text-white hover:bg-blue-600"
-                      }`}
-                    >
-                      {following[user] ? "✓ Following" : "Follow"}
-                    </button>
-                  )}
-                  {user !== currentUser && (
-                    <button
-                      onClick={() => {
-                        setCurrentChatUser(user);
-                        setScreen("privateMessages");
-                      }}
-                      className="px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 text-sm font-semibold"
-                    >
-                      Message
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        <FriendsList
+          otherUsers={otherUsers}
+          currentUser={currentUser}
+          following={following}
+          setFollowing={setFollowing}
+          openProfile={openProfile}
+          setScreen={setScreen}
+          setCurrentChatUser={setCurrentChatUser}
+          cardBg={cardBg}
+        />
       </Shell>
     );
   }
@@ -2450,60 +1903,17 @@ export default function HaitiSocialApp() {
   if (screen === "allUsers") {
     return (
       <Shell title="👥 All Users" onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-        <div className="grid grid-cols-1 gap-3">
-          {allUsers.length === 0 ? (
-            <div className={`${cardBg} rounded-xl p-6 text-center text-gray-200`}>
-              No accounts found yet. Use the admin panel to seed demo users or share the signup link.
-            </div>
-          ) : (
-            allUsers.map((user) => (
-              <div key={user} className={`${cardBg} rounded-xl p-4 shadow-lg flex items-center gap-4`}>
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
-                  {user[0].toUpperCase()}
-                </div>
-
-                <div className="flex-1">
-                  <div className="font-bold text-lg text-gray-900">{user}</div>
-                  <div className="text-xs text-gray-600">
-                    {posts.filter((p) => p.user === user).length} posts
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => openProfile(user)}
-                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-sm font-semibold"
-                  >
-                    View Profile
-                  </button>
-                  {user !== currentUser && (
-                    <button
-                      onClick={() => setFollowing((prev) => ({ ...prev, [user]: !prev[user] }))}
-                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
-                        following[user]
-                          ? "bg-gray-300 text-gray-900"
-                          : "bg-green-500 text-white hover:bg-green-600"
-                      }`}
-                    >
-                      {following[user] ? "✓ Following" : "Follow"}
-                    </button>
-                  )}
-                  {user !== currentUser && (
-                    <button
-                      onClick={() => {
-                        setCurrentChatUser(user);
-                        setScreen("privateMessages");
-                      }}
-                      className="px-4 py-2 rounded-lg bg-teal-600 text-white hover:bg-teal-700 text-sm font-semibold"
-                    >
-                      Message
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
+        <AllUsers
+          allUsers={allUsers}
+          posts={posts}
+          currentUser={currentUser}
+          following={following}
+          setFollowing={setFollowing}
+          openProfile={openProfile}
+          setCurrentChatUser={setCurrentChatUser}
+          setScreen={setScreen}
+          cardBg={cardBg}
+        />
       </Shell>
     );
   }
@@ -2513,70 +1923,18 @@ export default function HaitiSocialApp() {
   if (screen === "politics") {
     return (
       <Shell title="🗳️ Haiti Political Opinions" onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-        <div className="bg-gradient-to-r from-blue-600 to-red-600 text-white rounded-xl p-6 mb-4 shadow-lg">
-          <h2 className="text-2xl font-bold mb-2">🇭🇹 Voice Your Opinion</h2>
-          <p className="text-sm">Share your views on Haiti's political future. Your vote counts!</p>
-        </div>
-
-        <div className="bg-red-50 border-2 border-red-400 rounded-xl p-4 mb-6">
-          <h3 className="font-bold text-red-900 mb-2">❌ Politicians Who Should Not Run Again</h3>
-          <p className="text-sm text-red-800 mb-2">Based on 10+ years in office or failed leadership:</p>
-          <div className="grid grid-cols-2 gap-2">
-            {BLACKLISTED_POLITICIANS.map(name => (
-              <div key={name} className="bg-white p-2 rounded text-sm text-gray-900">
-                🚫 {name}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {politicalOpinions.map(opinion => {
-          const total = opinion.agree + opinion.disagree + opinion.neutral;
-          const agreePercent = total > 0 ? Math.round((opinion.agree / total) * 100) : 0;
-          const disagreePercent = total > 0 ? Math.round((opinion.disagree / total) * 100) : 0;
-          const neutralPercent = total > 0 ? Math.round((opinion.neutral / total) * 100) : 0;
-          const userVote = opinion.userVotes[currentUser];
-
-          return (
-            <div key={opinion.id} className={`${cardBg} rounded-xl p-6 mb-6 shadow-lg border-2 ${userVote ? 'border-blue-500' : 'border-transparent'}`}>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">{opinion.question}</h3>
-              <p className="text-sm text-gray-700 mb-4">{opinion.description}</p>
-
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <button
-                  onClick={() => handleVoteOpinion(opinion.id, 'agree')}
-                  className={`py-3 rounded-lg font-bold transition ${
-                    userVote === 'agree' ? 'bg-green-700 text-white ring-4 ring-green-300' : 'bg-green-600 text-white hover:bg-green-700'
-                  }`}
-                >
-                  ✅ Agree
-                  <div className="text-2xl">{opinion.agree}</div>
-                </button>
-                <button
-                  onClick={() => handleVoteOpinion(opinion.id, 'neutral')}
-                  className={`py-3 rounded-lg font-bold transition ${
-                    userVote === 'neutral' ? 'bg-gray-600 text-white ring-4 ring-gray-300' : 'bg-gray-500 text-white hover:bg-gray-600'
-                  }`}
-                >
-                  ⚪ Neutral
-                  <div className="text-2xl">{opinion.neutral}</div>
-                </button>
-                <button
-                  onClick={() => handleVoteOpinion(opinion.id, 'disagree')}
-                  className={`py-3 rounded-lg font-bold transition ${
-                    userVote === 'disagree' ? 'bg-red-700 text-white ring-4 ring-red-300' : 'bg-red-600 text-white hover:bg-red-700'
-                  }`}
-                >
-                  ❌ Disagree
-                  <div className="text-2xl">{opinion.disagree}</div>
-                </button>
-              </div>
-
-              <div className="h-8 bg-gray-200 rounded-full overflow-hidden flex">
-                <div className="bg-green-600 transition-all duration-1000" style={{ width: `${agreePercent}%` }} />
-                <div className="bg-gray-500 transition-all duration-1000" style={{ width: `${neutralPercent}%` }} />
-                <div className="bg-red-600 transition-all duration-1000" style={{ width: `${disagreePercent}%` }} />
-              </div>
+        <Politics
+          politicalOpinions={politicalOpinions}
+          handleVoteOpinion={handleVoteOpinion}
+          handleCommentOpinion={handleCommentOpinion}
+          handleLikeComment={handleLikeComment}
+          BLACKLISTED_POLITICIANS={BLACKLISTED_POLITICIANS}
+          cardBg={cardBg}
+          currentUser={currentUser}
+        />
+      </Shell>
+    );
+  }
 
               <div className="border-t-2 pt-4 mt-4">
                 <h4 className="font-bold text-gray-900 mb-3">💬 Comments ({opinion.comments.length})</h4>
@@ -2634,108 +1992,17 @@ export default function HaitiSocialApp() {
   if (screen === "memorials") {
     return (
       <Shell title="💐 In Memoriam" onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-        <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl p-6 mb-4 shadow-lg">
-          <h2 className="text-2xl font-bold mb-2">💐 Honor Their Memory</h2>
-          <p className="text-sm">Create tributes for loved ones who have passed away.</p>
-        </div>
-
-        <div className={`${cardBg} rounded-xl p-6 mb-6 shadow-lg`}>
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Create Memorial</h3>
-          
-          <input
-            placeholder="Person's Full Name"
-            ref={memorialNameRef}
-            className="w-full p-3 border-2 rounded-lg mb-3 text-gray-900"
-          />
-          
-          <input
-            placeholder="Years (e.g., 1950-2023)"
-            ref={memorialYearsRef}
-            className="w-full p-3 border-2 rounded-lg mb-3 text-gray-900"
-          />
-          
-          <div className="mb-3">
-            <label className="block text-sm font-semibold text-gray-900 mb-2">Upload Photo</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onload = () => setMemorialPhoto(reader.result);
-                  reader.readAsDataURL(file);
-                }
-              }}
-              className="w-full p-2 border-2 rounded-lg"
-            />
-          </div>
-
-          {memorialPhoto && (
-            <div className="mb-3">
-              <img src={memorialPhoto} alt="Preview" className="w-32 h-32 rounded-lg object-cover" />
-            </div>
-          )}
-          
-          <textarea
-            placeholder="Write a tribute..."
-            ref={memorialTributeRef}
-            className="w-full p-3 border-2 rounded-lg mb-3 text-gray-900"
-            rows={6}
-          />
-          
-          <button
-            onClick={handleCreateMemorial}
-            className="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700"
-          >
-            Create Memorial
-          </button>
-        </div>
-
-        {memorials.map(memorial => (
-          <div key={memorial.id} className={`${cardBg} rounded-xl p-6 mb-6 shadow-lg`}>
-            <div className="flex gap-4 mb-4">
-              {memorial.photo ? (
-                <img src={memorial.photo} alt={memorial.name} className="w-24 h-24 rounded-full object-cover border-4 border-purple-500" />
-              ) : (
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl">💐</div>
-              )}
-              <div className="flex-1">
-                <h3 className="text-2xl font-bold text-gray-900">{memorial.name}</h3>
-                <p className="text-lg text-gray-600">{memorial.years}</p>
-                <p className="text-sm text-gray-500">Posted by {memorial.author}</p>
-              </div>
-            </div>
-
-            <p className="text-gray-800 whitespace-pre-wrap mb-4">{memorial.tribute}</p>
-
-            <div className="border-t-2 pt-4">
-              <h4 className="font-bold text-gray-900 mb-3">💬 Condolences ({memorial.condolences.length})</h4>
-              
-              <div className="flex gap-2 mb-3">
-                <input
-                  placeholder="Leave your condolences..."
-                  className="flex-1 p-3 border-2 rounded-lg text-gray-900"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.target.value.trim()) {
-                      handleAddCondolence(memorial.id, e.target.value);
-                      e.target.value = '';
-                    }
-                  }}
-                />
-              </div>
-
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {memorial.condolences.map(cond => (
-                  <div key={cond.id} className="bg-purple-50 p-3 rounded-lg">
-                    <div className="font-bold text-sm text-purple-700">{cond.author}</div>
-                    <div className="text-sm text-gray-800">{cond.text}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        ))}
+        <Memorials
+          memorials={memorials}
+          memorialPhoto={memorialPhoto}
+          memorialNameRef={memorialNameRef}
+          memorialYearsRef={memorialYearsRef}
+          memorialTributeRef={memorialTributeRef}
+          setMemorialPhoto={setMemorialPhoto}
+          setMemorialFile={setMemorialFile}
+          handleCreateMemorial={handleCreateMemorial}
+          handleAddCondolence={handleAddCondolence}
+        />
       </Shell>
     );
   }
@@ -2745,188 +2012,31 @@ export default function HaitiSocialApp() {
   if (screen === "classmates") {
     return (
       <Shell title={`🎓 ${trans.classmates}`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-        <div className={`${cardBg} rounded-xl p-4 shadow-lg mb-4`}>
-          <h3 className="font-bold text-gray-900 text-lg mb-2">Find old classmates</h3>
-          <p className="text-sm text-gray-700">Choose your school, post a request, and let people reply.</p>
-        </div>
-
-        {/* Add School Modal */}
-        {showAddSchool && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className={`${cardBg} rounded-2xl p-6 max-w-md w-full shadow-2xl`}>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">➕ Add New School</h3>
-              
-              <input
-                value={newSchoolName}
-                onChange={(e) => setNewSchoolName(e.target.value)}
-                className="w-full p-3 rounded-lg border-2 text-gray-900 mb-3"
-                placeholder="School Name (e.g., Lycée Toussaint Louverture)"
-              />
-              
-              <input
-                value={newSchoolCity}
-                onChange={(e) => setNewSchoolCity(e.target.value)}
-                className="w-full p-3 rounded-lg border-2 text-gray-900 mb-3"
-                placeholder="City (e.g., Port-au-Prince)"
-              />
-              
-              <select
-                value={newSchoolDepartment}
-                onChange={(e) => setNewSchoolDepartment(e.target.value)}
-                className="w-full p-3 rounded-lg border-2 text-gray-900 mb-4"
-              >
-                <option value="">Select Department</option>
-                <option value="Artibonite">Artibonite</option>
-                <option value="Centre">Centre</option>
-                <option value="Grand'Anse">Grand'Anse</option>
-                <option value="Nippes">Nippes</option>
-                <option value="Nord">Nord</option>
-                <option value="Nord-Est">Nord-Est</option>
-                <option value="Nord-Ouest">Nord-Ouest</option>
-                <option value="Ouest">Ouest</option>
-                <option value="Sud">Sud</option>
-                <option value="Sud-Est">Sud-Est</option>
-              </select>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={handleAddSchool}
-                  className="flex-1 bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700"
-                >
-                  Add School
-                </button>
-                <button
-                  onClick={() => {
-                    setShowAddSchool(false);
-                    setNewSchoolName("");
-                    setNewSchoolCity("");
-                    setNewSchoolDepartment("");
-                  }}
-                  className="flex-1 bg-gray-500 text-white font-bold py-3 rounded-lg hover:bg-gray-600"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className={`${cardBg} rounded-xl p-4 shadow mb-4`}>
-          <div className="flex justify-between items-center mb-2">
-            <div className="font-bold text-gray-900">Choose a school</div>
-            <button
-              onClick={() => setShowAddSchool(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-bold text-sm flex items-center gap-2"
-            >
-              ➕ Add School
-            </button>
-          </div>
-          
-          <div className="max-h-48 overflow-y-auto space-y-2">
-            {schools.map((s) => (
-              <button 
-                key={s.id} 
-                onClick={() => setSelectedSchoolId(s.id)} 
-                className={`w-full p-3 rounded-lg border-2 text-left transition ${
-                  selectedSchoolId === s.id 
-                    ? "border-blue-600 bg-blue-50 shadow-md" 
-                    : "border-gray-200 bg-white hover:border-blue-300"
-                }`}
-              >
-                <div className="font-bold text-gray-900">{s.name}</div>
-                <div className="text-sm text-gray-600">{s.city} • {s.department}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className={`${cardBg} rounded-xl p-4 shadow mb-4`}>
-          <div className="font-bold text-gray-900 mb-2">Post a classmate request</div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
-            <input 
-              value={classmateName}
-              onChange={(e) => setClassmateName(e.target.value)}
-              className="p-3 rounded-lg border-2 text-gray-900" 
-              placeholder="Classmate name (required)" 
-            />
-            <input 
-              value={classmateYear}
-              onChange={(e) => setClassmateYear(e.target.value)}
-              className="p-3 rounded-lg border-2 text-gray-900" 
-              placeholder="Year (e.g., 2012)" 
-            />
-            <button 
-              onClick={handleCreateClassmatePost} 
-              className="bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold"
-            >
-              Post
-            </button>
-          </div>
-
-          <textarea 
-            value={classmateMessage}
-            onChange={(e) => setClassmateMessage(e.target.value)}
-            className="w-full p-3 rounded-lg border-2 text-gray-900" 
-            rows={3} 
-            placeholder="Message (optional)" 
-          />
-        </div>
-
-        <div className={`${cardBg} rounded-xl p-4 shadow`}>
-          <div className="font-bold text-gray-900 text-lg mb-3">Requests ({classmatesPosts.length})</div>
-
-          {classmatesPosts.length === 0 ? (
-            <div className="text-center text-gray-500 py-8">
-              <p>No requests yet. Be the first to post!</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {classmatesPosts.map((p) => (
-                <div key={p.id} className="border-2 border-gray-200 rounded-xl p-4">
-                  <div className="font-bold text-gray-900">{p.lookingFor}</div>
-                  <div className="text-sm text-gray-600">School: {p.schoolName}{p.year ? ` • Year: ${p.year}` : ""}</div>
-                  <div className="text-sm text-gray-600">Posted by {p.postedBy}</div>
-                  
-                  {p.message && <div className="mt-3 text-gray-900">{p.message}</div>}
-
-                  <div className="mt-4">
-                    <div className="text-sm font-bold text-gray-900 mb-2">Replies ({p.replies.length})</div>
-
-                    {p.replies.length === 0 ? (
-                      <div className="text-sm text-gray-500">No replies yet.</div>
-                    ) : (
-                      <div className="space-y-2">
-                        {p.replies.map((r) => (
-                          <div key={r.id} className="bg-gray-100 rounded-lg p-3">
-                            <div className="text-sm font-bold text-gray-900">{r.by}</div>
-                            <div className="text-sm text-gray-800">{r.text}</div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="flex gap-2 mt-3">
-                      <input
-                        value={replyTexts[p.id] || ""}
-                        onChange={(e) => setReplyTexts(prev => ({ ...prev, [p.id]: e.target.value }))}
-                        className="flex-1 p-3 rounded-lg border-2 text-gray-900"
-                        placeholder="Write a reply..."
-                        onKeyDown={(e) => e.key === "Enter" && handleReplyToPost(p.id)}
-                      />
-                      <button 
-                        onClick={() => handleReplyToPost(p.id)} 
-                        className="px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-bold"
-                      >
-                        Reply
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <Classmates
+          schools={schools}
+          showAddSchool={showAddSchool}
+          setShowAddSchool={setShowAddSchool}
+          newSchoolName={newSchoolName}
+          setNewSchoolName={setNewSchoolName}
+          newSchoolCity={newSchoolCity}
+          setNewSchoolCity={setNewSchoolCity}
+          newSchoolDepartment={newSchoolDepartment}
+          setNewSchoolDepartment={setNewSchoolDepartment}
+          selectedSchoolId={selectedSchoolId}
+          setSelectedSchoolId={setSelectedSchoolId}
+          classmateName={classmateName}
+          setClassmateName={setClassmateName}
+          classmateYear={classmateYear}
+          setClassmateYear={setClassmateYear}
+          classmateMessage={classmateMessage}
+          setClassmateMessage={setClassmateMessage}
+          handleAddSchool={handleAddSchool}
+          handleCreateClassmatePost={handleCreateClassmatePost}
+          classmatesPosts={classmatesPosts}
+          replyTexts={replyTexts}
+          setReplyTexts={setReplyTexts}
+          handleReplyToPost={handleReplyToPost}
+        />
       </Shell>
     );
   }
@@ -2951,227 +2061,44 @@ export default function HaitiSocialApp() {
 
   if (screen === "profile") {
     const u = viewProfileUser || currentUser;
-    const p = profiles[u] && typeof profiles[u] === 'object' ? profiles[u] : { username: u, displayName: u, bio: "", location: "", photoDataUrl: "", photos: [] };
-    // Defensive: fallback for any property
-    const displayName = p?.displayName || u;
-    const bio = p?.bio || "";
-    const location = p?.location || "";
-    const photoDataUrl = p?.photoDataUrl || "";
-    const photos = Array.isArray(p?.photos) ? p.photos : [];
     const isMe = u === currentUser;
+    const p = profiles[u] || { bio: "", location: "", photos: [] };
 
     return (
       <Shell title={`👤 ${u}`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-        <div className={`${cardBg} rounded-xl p-5 shadow`}>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-3xl">
-              {p.photoDataUrl ? (
-                <img src={p.photoDataUrl} alt="profile" className="w-full h-full object-cover" />
-              ) : (
-                "👤"
-              )}
-            </div>
-
-            <div className="flex-1">
-              <div className="text-xl font-bold text-gray-900">{p.displayName || u}</div>
-              <div className="text-sm text-gray-600">@{u}</div>
-              <div className="text-sm text-gray-600 mt-1">{p.location || "No location set"}</div>
-            </div>
-          </div>
-
-          {isMe && (
-            <div className="mt-6">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                <div className="font-bold text-gray-900">AI Photo Filters</div>
-                <div className="text-sm text-gray-600">{(p.photos?.length || 0)} / {MAX_PROFILE_PHOTOS} photos</div>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                {PHOTO_FILTERS.map((filter) => {
-                  const disabled = !aiFiltersEnabled && filter.id !== "original";
-                  const isSelected = selectedFilterStyle === filter.id;
-                  return (
-                    <button
-                      key={filter.id}
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => setSelectedFilterStyle(filter.id)}
-                      className={`text-left rounded-xl border p-3 transition ${isSelected ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-blue-400"} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                    >
-                      <div className="flex items-center justify-between text-sm font-semibold text-gray-900">
-                        <span>{filter.label}</span>
-                        <span className={`text-xs ${filter.id === "original" ? "text-gray-500" : "text-purple-600"}`}>
-                          {filter.id === "original" ? "No AI" : "AI"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-600 mt-1">{filter.description}</p>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {!aiFiltersEnabled && (
-                <p className="text-xs text-amber-600 mt-2">
-                  AI filters are temporarily unavailable. Uploads will use the original photo.
-                </p>
-              )}
-
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <label
-                  className={`px-4 py-2 rounded-lg font-semibold text-white cursor-pointer ${isUploadingPhotos ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"}`}
-                >
-                  {isUploadingPhotos ? "Uploading..." : "Upload Photos"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    disabled={isUploadingPhotos}
-                    onChange={(e) => handleProfilePhotoUpload(e.target.files)}
-                  />
-                </label>
-                <div className="text-sm text-gray-600">
-                  Supports JPG, PNG, WEBP. Maximum {MAX_PROFILE_PHOTOS} photos.
-                </div>
-                <div className="text-xs text-gray-500">
-                  Tip: Hold Ctrl (or Command on Mac) to select multiple photos at once.
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-4">
-            <div className="font-bold text-gray-900 mb-2">Bio</div>
-            {isMe ? (
-              <textarea
-                className="w-full p-3 rounded-lg border-2 text-gray-900"
-                rows={3}
-                value={editBio}
-                onChange={(e) => setEditBio(e.target.value)}
-                placeholder="Tell people about you..."
-              />
-            ) : (
-              <div className="text-gray-800 bg-gray-100 p-3 rounded-lg">{p.bio || "No bio yet."}</div>
-            )}
-          </div>
-
-          <div className="mt-6">
-            <div className="font-bold text-gray-900 mb-2">Photo Gallery</div>
-            {p.photos?.length ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {p.photos.map((photo) => (
-                  <div key={photo.id} className="rounded-xl border border-gray-200 p-3">
-                    <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
-                      <img src={photo.photo_url} alt="Profile" className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex items-center justify-between mt-2 text-sm text-gray-700">
-                      <span>{FILTER_LABEL_LOOKUP[photo.filter_style] || "Original"}</span>
-                      {photo.is_primary && <span className="text-green-600 font-semibold">Primary</span>}
-                    </div>
-                    {isMe && (
-                      <div className="flex gap-2 mt-3">
-                        {!photo.is_primary && (
-                          <button
-                            onClick={() => handleSetPrimaryPhoto(photo.id)}
-                            className="flex-1 rounded-lg border border-blue-600 text-blue-600 px-3 py-1 text-sm hover:bg-blue-50"
-                          >
-                            Make Primary
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeletePhoto(photo.id)}
-                          className="flex-1 rounded-lg border border-red-500 text-red-500 px-3 py-1 text-sm hover:bg-red-50"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-gray-600 bg-gray-100 rounded-lg p-4">No photos yet.</div>
-            )}
-          </div>
-
-          {isMe && (
-            <>
-              <div className="mt-4">
-                <div className="font-bold text-gray-900 mb-2">Display Name</div>
-                <input
-                  className="w-full p-3 rounded-lg border-2 text-gray-900"
-                  value={editDisplayName}
-                  onChange={(e) => setEditDisplayName(e.target.value)}
-                  placeholder="Your display name"
-                />
-              </div>
-              <div className="mt-4">
-                <div className="font-bold text-gray-900 mb-2">Location</div>
-                <input
-                  className="w-full p-3 rounded-lg border-2 text-gray-900"
-                  value={editLocation}
-                  onChange={(e) => setEditLocation(e.target.value)}
-                  placeholder="City / Country"
-                />
-              </div>
-              <button
-                onClick={async () => {
-                  if (!currentUser) {
-                    pushNotif("⚠️ Please log in to update your profile");
-                    return;
-                  }
-                  try {
-                    await updateUserProfile({
-                      displayName: editDisplayName || currentUser,
-                      bio: editBio,
-                      location: editLocation,
-                    });
-                    setProfiles((prev) => ({
-                      ...prev,
-                      [u]: { ...p, displayName: editDisplayName, bio: editBio, location: editLocation },
-                    }));
-                    await loadProfile(currentUser);
-                    await refreshUsers();
-                    pushNotif("✅ Profile updated!");
-                    setTimeout(() => setScreen("home"), 1000);
-                  } catch (err) {
-                    pushNotif(`❌ Failed to update profile: ${err?.message || "Unknown error"}`);
-                  }
-                }}
-                className="mt-4 w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700"
-              >
-                Save Profile
-              </button>
-
-              <button
-                onClick={() => setScreen("changePassword")}
-                className="mt-3 w-full bg-purple-600 text-white font-bold py-3 rounded-xl hover:bg-purple-700"
-              >
-                Change Password
-              </button>
-            </>
-          )}
-
-          {!isMe && (
-            <div className="mt-4">
-              <button
-                onClick={() => {
-                  setCurrentChatUser(u);
-                  setScreen("privateMessages");
-                }}
-                className="w-full bg-teal-600 text-white font-bold py-3 rounded-xl hover:bg-teal-700"
-              >
-                Send Message
-              </button>
-            </div>
-          )}
-        </div>
+        <ProfileView
+          u={u}
+          isMe={isMe}
+          p={p}
+          editBio={editBio}
+          onEditBioChange={(v) => setEditBio(v)}
+          editDisplayName={editDisplayName}
+          onEditDisplayNameChange={(v) => setEditDisplayName(v)}
+          editLocation={editLocation}
+          onEditLocationChange={(v) => setEditLocation(v)}
+          isUploadingPhotos={isUploadingPhotos}
+          handleProfilePhotoUpload={handleProfilePhotoUpload}
+          PHOTO_FILTERS={PHOTO_FILTERS}
+          aiFiltersEnabled={aiFiltersEnabled}
+          selectedFilterStyle={selectedFilterStyle}
+          setSelectedFilterStyle={setSelectedFilterStyle}
+          MAX_PROFILE_PHOTOS={MAX_PROFILE_PHOTOS}
+          FILTER_LABEL_LOOKUP={FILTER_LABEL_LOOKUP}
+          pendingDelete={pendingDelete}
+          openDeleteModal={openDeleteModal}
+          deleteModalOpen={deleteModalOpen}
+          closeDeleteModal={closeDeleteModal}
+          confirmDelete={confirmDelete}
+          deleteLoading={deleteLoading}
+          handleSetPrimaryPhoto={handleSetPrimaryPhoto}
+          onSaveProfile={() => handleSaveProfile(u)}
+          onChangePassword={() => setScreen("changePassword")}
+          onMessage={() => { setCurrentChatUser(u); setScreen("privateMessages"); }}
+        />
       </Shell>
     );
   }
-{/* User Stats */}
-          
-  // ========== DEFAULT FALLBACK ==========
+  
   
   return (
     <Shell title={screen} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>

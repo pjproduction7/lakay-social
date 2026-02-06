@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Shield, Trash2, X, UserPlus, KeyRound } from 'lucide-react';
-// import { adminCreateUser, adminChangePassword, deleteUser } from '../../services/auth';
+import { deleteUser } from '../../services/auth';
 
 export default function AdminPanel({ 
   currentUser, 
@@ -12,7 +12,6 @@ export default function AdminPanel({
   setShadowBannedUsers,
   moderators,
   setModerators,
-  messages,
   setMessages,
   refreshUsers,
   onClose,
@@ -323,3 +322,21 @@ export default function AdminPanel({
     </div>
   );
 }
+
+import PropTypes from 'prop-types';
+
+AdminPanel.propTypes = {
+  currentUser: PropTypes.string.isRequired,
+  isAdmin: PropTypes.bool.isRequired,
+  allUsers: PropTypes.array.isRequired,
+  bannedUsers: PropTypes.array.isRequired,
+  setBannedUsers: PropTypes.func.isRequired,
+  shadowBannedUsers: PropTypes.array.isRequired,
+  setShadowBannedUsers: PropTypes.func.isRequired,
+  moderators: PropTypes.array.isRequired,
+  setModerators: PropTypes.func.isRequired,
+  setMessages: PropTypes.func,
+  refreshUsers: PropTypes.func,
+  onClose: PropTypes.func.isRequired,
+  pushNotif: PropTypes.func.isRequired,
+};

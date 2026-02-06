@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import PropTypes from 'prop-types';
 
 export default function MemoryGame({ onWin }) {
   const emojis = ["🇭🇹", "🥥", "🌴", "🎸", "⚽", "🎲", "🌶️", "🥁"];
@@ -68,3 +69,7 @@ export default function MemoryGame({ onWin }) {
     </div>
   );
 }
+
+MemoryGame.propTypes = {
+  onWin: PropTypes.func,
+};

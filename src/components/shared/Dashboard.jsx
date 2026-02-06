@@ -1,8 +1,9 @@
 import React from 'react';
-import { Users, MessageSquare, Music, Gamepad2 } from 'lucide-react';
+import PropTypes from 'prop-types';
+import { Users, MessageSquare, Music } from 'lucide-react';
 
 export default function Dashboard({ stats }) {
-  const { totalUsers, totalPosts, totalMessages, totalMusic } = stats;
+  const { totalUsers, totalPosts, totalMessages, totalMusic } = stats || {};
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -23,3 +24,19 @@ function StatCard({ icon, label, value, color }) {
     </div>
   );
 }
+
+Dashboard.propTypes = {
+  stats: PropTypes.shape({
+    totalUsers: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    totalPosts: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    totalMessages: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    totalMusic: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  }),
+};
+
+StatCard.propTypes = {
+  icon: PropTypes.node,
+  label: PropTypes.string,
+  value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+  color: PropTypes.string,
+};

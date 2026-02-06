@@ -30,11 +30,41 @@ app.use(cors({
     "https://lakaysocial.com",
     "https://www.lakaysocial.com",
     "http://localhost:5173",
+    "http://localhost:5176",
     "https://lakay-social-production-361d.up.railway.app"
   ],
   credentials: true
 }));
-app.use(express.json());
+// Log incoming requests early to diagnose large payloads
+app.use((req, res, next) => {
+  try {
+    const cl = req.headers['content-length'] || '-';
+    const ct = req.headers['content-type'] || '-';
+    console.log(`INCOMING ${req.method} ${req.path} content-length=${cl} content-type=${ct} from=${req.ip}`);
+  } catch (e) {
+    // ignore
+  }
+  next();
+});
+
+// Increase JSON/urlencoded body size limits to allow larger payloads (images/base64 etc.)
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
+console.log('? Body parser limits set: json=1mb, urlencoded=1mb');
+
+// Serve uploads with CORS headers
+app.use('/uploads', (req, res, next) => {
+  // Allow cross-origin image fetching and CORS
+  res.header('Access-Control-Allow-Origin', 'http://localhost:5176');
+  res.header('Access-Control-Allow-Methods', 'GET');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  // Permit cross-origin resource policy for images so browser won't block them
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  express.static('public/uploads')(req, res, next);
+});
+
+// Serve static files from public directory
+app.use(express.static('public'));
 
 app.get("/health", function(_req, res) {
   res.json({ status: "ok", uptime: process.uptime() });

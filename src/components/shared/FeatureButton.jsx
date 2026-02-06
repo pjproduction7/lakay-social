@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 
 export default function FeatureButton({ icon, label, onClick, color = "bg-blue-600", badge = null }) {
   return (
@@ -16,3 +17,11 @@ export default function FeatureButton({ icon, label, onClick, color = "bg-blue-6
     </button>
   );
 }
+
+FeatureButton.propTypes = {
+  icon: PropTypes.node,
+  label: PropTypes.string.isRequired,
+  onClick: PropTypes.func,
+  color: PropTypes.string,
+  badge: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+};
