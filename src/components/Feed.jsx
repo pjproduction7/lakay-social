@@ -36,7 +36,7 @@ export default function Feed({
 
         {postImage && (
           <div className="mb-4 relative">
-            <img src={postImage} alt="Preview" className="w-full max-h-60 object-cover rounded-xl border-4 border-white/50 shadow-lg" />
+            <img src={postImage} alt="Preview" className="w-full max-h-60 object-cover rounded-xl border-4 border-white/50 shadow-lg" loading="lazy" />
             <button
               onClick={() => {
                 // Parent should control clearing image via passed handler, but simple behavior here:
@@ -112,7 +112,7 @@ export default function Feed({
 
               {/* Post Image */}
               {post.image && (
-                <img src={post.image} alt="Post" className="w-full max-h-96 object-cover rounded-xl mb-4 border-4 border-white shadow-lg" />
+                <img src={post.image} alt="Post" className="w-full max-h-96 object-cover rounded-xl mb-4 border-4 border-white shadow-lg" loading="lazy" />
               )}
 
               {/* Interactions */}

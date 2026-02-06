@@ -40,7 +40,7 @@ const AvatarPicker = ({ currentUser, currentAvatar, onSelect, onClose }) => {
                   className="avatar-style-option"
                   onClick={() => setSelectedStyle(style.id)}
                 >
-                  <img src={generateAvatarUrl(style.id, 'preview', currentUser)} alt={style.name} />
+                  <img src={generateAvatarUrl(style.id, 'preview', currentUser)} alt={style.name} loading="lazy" />
                   <div className="style-info">
                     <strong>{style.name}</strong>
                     <small>{style.description}</small>
@@ -64,7 +64,7 @@ const AvatarPicker = ({ currentUser, currentAvatar, onSelect, onClose }) => {
                     className={`avatar-option ${currentAvatar === url ? 'selected' : ''}`}
                     onClick={() => onSelect(url)}
                   >
-                    <img src={url} alt={`Avatar ${seed}`} />
+                    <img src={url} alt={`Avatar ${seed}`} loading="lazy" />
                   </button>
                 );
               })}

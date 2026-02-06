@@ -40,7 +40,7 @@ export default function Memorials({
 
         {memorialPhoto && (
           <div className="mb-3">
-            <img src={memorialPhoto} alt="Preview" className="w-32 h-32 rounded-lg object-cover" />
+            <img src={memorialPhoto} alt="Preview" className="w-32 h-32 rounded-lg object-cover" loading="lazy" />
           </div>
         )}
 
@@ -53,7 +53,7 @@ export default function Memorials({
         <div key={memorial.id} className="bg-white rounded-xl p-6 mb-6 shadow-lg">
           <div className="flex gap-4 mb-4">
             {memorial.photo ? (
-              <img src={memorial.photo} alt={memorial.name} className="w-24 h-24 rounded-full object-cover border-4 border-purple-500" />
+              <img src={memorial.photo} alt={memorial.name} className="w-24 h-24 rounded-full object-cover border-4 border-purple-500" loading="lazy" />
             ) : (
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-4xl">💐</div>
             )}

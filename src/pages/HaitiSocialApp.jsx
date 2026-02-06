@@ -2003,7 +2003,7 @@ export default function HaitiSocialApp() {
           <div className="flex items-center gap-4 mb-4">
             <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-3xl">
               {p.photoDataUrl ? (
-                <img src={p.photoDataUrl} alt="profile" className="w-full h-full object-cover" />
+                <img src={p.photoDataUrl} alt="profile" className="w-full h-full object-cover" loading="lazy" />
               ) : (
                 "👤"
               )}
@@ -2100,7 +2100,7 @@ export default function HaitiSocialApp() {
                 {p.photos.map((photo) => (
                   <div key={photo.id} className="rounded-xl border border-gray-200 p-3">
                     <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
-                      <img src={photo.photo_url} alt="Profile" className="w-full h-full object-cover" />
+                      <img src={photo.photo_url} alt="Profile" className="w-full h-full object-cover" loading="lazy" />
                     </div>
                     <div className="flex items-center justify-between mt-2 text-sm text-gray-700">
                       <span>{FILTER_LABEL_LOOKUP[photo.filter_style] || "Original"}</span>

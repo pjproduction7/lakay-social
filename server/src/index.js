@@ -4,6 +4,7 @@ import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
+import rateLimit from "express-rate-limit";
 import authRoutes from "./routes/auth.js";
 import profileRoutes from "./routes/profiles.js";
 import messageRoutes from "./routes/messages.js";
@@ -35,6 +36,17 @@ app.use(cors({
   ],
   credentials: true
 }));
+
+// Rate limiting: 100 requests per 15 minutes per IP
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: "Too many requests from this IP, please try again later.",
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+app.use(limiter);
+
 // Log incoming requests early to diagnose large payloads
 app.use((req, res, next) => {
   try {
@@ -60,6 +72,8 @@ app.use('/uploads', (req, res, next) => {
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   // Permit cross-origin resource policy for images so browser won't block them
   res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  // Cache images for 1 hour
+  res.header('Cache-Control', 'public, max-age=3600');
   express.static('public/uploads')(req, res, next);
 });
 
