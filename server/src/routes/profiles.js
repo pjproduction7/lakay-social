@@ -1,12 +1,42 @@
+
 import { Router } from "express";
 import { z } from "zod";
 import { query } from "../db.js";
+import multer from "multer";
+import cloudinary from "../services/cloudinary.js";
 import { requireAuth } from "../middleware/auth.js";
 import multer from "multer";
 import path from "path";
 import { promises as fs } from "fs";
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage() });
+
+// POST /profiles/photos - upload profile photos
+router.post("/photos", requireAuth, upload.array("photos", 6), async (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: "No files uploaded" });
+  }
+  try {
+    const uploadResults = [];
+    for (const file of req.files) {
+      const result = await cloudinary.uploader.upload_stream({
+        folder: process.env.CLOUDINARY_FOLDER || "lakay/profiles",
+        resource_type: "image",
+      }, (error, result) => {
+        if (error) throw error;
+        uploadResults.push(result.secure_url);
+      });
+      result.end(file.buffer);
+    }
+    // Optionally: Save URLs to user's profile in DB here
+    res.json({ uploaded: uploadResults });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to upload photos" });
+  }
+});
+
 
 // Ensure soft-delete columns exist for profile_photos
 (async function ensurePhotoSoftDeleteColumns() {
