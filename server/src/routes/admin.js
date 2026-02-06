@@ -74,4 +74,84 @@ router.get("/stats", requireAuth, requireAdmin, async (_req, res) => {
   }
 });
 
+// POST /admin/users/:username/role - Assign role to user
+router.post("/users/:username/role", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { role } = req.body; // e.g., 'moderator', 'banned', 'shadow_banned'
+    if (!role) {
+      return res.status(400).json({ error: "Role is required" });
+    }
+    const userResult = await query("SELECT id FROM users WHERE LOWER(username) = $1", [username.toLowerCase()]);
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const userId = userResult.rows[0].id;
+    await query(
+      "INSERT INTO user_roles (user_id, role, granted_by) VALUES ($1, $2, $3) ON CONFLICT (user_id, role) DO NOTHING",
+      [userId, role, req.user.id]
+    );
+    res.json({ message: `Role ${role} assigned to ${username}` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to assign role" });
+  }
+});
+
+// DELETE /admin/users/:username/role/:role - Remove role from user
+router.delete("/users/:username/role/:role", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { username, role } = req.params;
+    const userResult = await query("SELECT id FROM users WHERE LOWER(username) = $1", [username.toLowerCase()]);
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const userId = userResult.rows[0].id;
+    await query("DELETE FROM user_roles WHERE user_id = $1 AND role = $2", [userId, role]);
+    res.json({ message: `Role ${role} removed from ${username}` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to remove role" });
+  }
+});
+
+// GET /admin/users/:username/roles - Get user roles
+router.get("/users/:username/roles", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const userResult = await query("SELECT id FROM users WHERE LOWER(username) = $1", [username.toLowerCase()]);
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const userId = userResult.rows[0].id;
+    const rolesResult = await query("SELECT role FROM user_roles WHERE user_id = $1", [userId]);
+    res.json({ roles: rolesResult.rows.map(r => r.role) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch roles" });
+  }
+});
+
+// GET /admin/logs - Get recent admin actions (simplified logs)
+router.get("/logs", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    // For now, return recent user creations and role changes
+    const recentUsers = await query("SELECT username, created_at FROM users ORDER BY created_at DESC LIMIT 10");
+    const recentRoles = await query(`
+      SELECT ur.role, u.username as target, g.username as granted_by, ur.granted_at
+      FROM user_roles ur
+      JOIN users u ON ur.user_id = u.id
+      LEFT JOIN users g ON ur.granted_by = g.id
+      ORDER BY ur.granted_at DESC LIMIT 10
+    `);
+    res.json({
+      recentUsers: recentUsers.rows,
+      recentRoleChanges: recentRoles.rows,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch logs" });
+  }
+});
+
 export default router;

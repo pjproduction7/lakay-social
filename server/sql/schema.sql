@@ -74,3 +74,11 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS user_roles (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    role VARCHAR(50) NOT NULL,
+    granted_by INTEGER REFERENCES users(id),
+    granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(user_id, role)
+);
+

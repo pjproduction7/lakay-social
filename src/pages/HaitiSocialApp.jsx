@@ -123,6 +123,12 @@ export default function HaitiSocialApp() {
   const [editLocation, setEditLocation] = useState("");
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
 
+  // Admin data
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [userRoles, setUserRoles] = useState({});
+  const [adminStats, setAdminStats] = useState({});
+  const [adminLogs, setAdminLogs] = useState({});
+
   // AI photo filter usage state
   const [aiFiltersEnabled, setAiFiltersEnabled] = useState(false);
   const [selectedFilterStyle, setSelectedFilterStyle] = useState(DEFAULT_FILTER_STYLE);
@@ -539,6 +545,35 @@ export default function HaitiSocialApp() {
       pushNotif(`❌ Failed to load user profiles: ${err?.message || "Unknown error"}`);
     }
   }, [pushNotif]);
+
+  const refreshAdminData = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const { getAllUsers: getAdminUsers, getAdminStats, getAdminLogs } = await import('../services/auth');
+      const [usersRes, statsRes, logsRes] = await Promise.all([
+        getAdminUsers(),
+        getAdminStats(),
+        getAdminLogs(),
+      ]);
+      setAdminUsers(usersRes);
+      setAdminStats(statsRes);
+      setAdminLogs(logsRes);
+      // Load roles for each user
+      const roles = {};
+      for (const user of usersRes) {
+        try {
+          const userRolesRes = await getUserRoles(user.username);
+          roles[user.username] = userRolesRes.roles || [];
+        } catch (e) {
+          roles[user.username] = [];
+        }
+      }
+      setUserRoles(roles);
+    } catch (err) {
+      console.error(err);
+      pushNotif(`❌ Failed to load admin data: ${err?.message || "Unknown error"}`);
+    }
+  }, [isAdmin, pushNotif]);
 
   const mapRemotePrivateMessage = useCallback(
     (remote) => {
@@ -958,6 +993,13 @@ export default function HaitiSocialApp() {
       setSelectedFilterStyle("original"); // Removed filter-related effects
     }
   }, [aiFiltersEnabled, selectedFilterStyle]);
+
+  // Load admin data when admin panel opens
+  useEffect(() => {
+    if (showAdminPanel && isAdmin) {
+      refreshAdminData();
+    }
+  }, [showAdminPanel, isAdmin, refreshAdminData]);
 
   useEffect(() => {
     if (!currentUser) {
@@ -1618,6 +1660,10 @@ export default function HaitiSocialApp() {
             currentUser={currentUser}
             isAdmin={isAdmin}
             allUsers={allUsers}
+            adminUsers={adminUsers}
+            userRoles={userRoles}
+            adminStats={adminStats}
+            adminLogs={adminLogs}
             bannedUsers={bannedUsers}
             setBannedUsers={setBannedUsers}
             shadowBannedUsers={shadowBannedUsers}
@@ -1627,6 +1673,7 @@ export default function HaitiSocialApp() {
             messages={messages}
             setMessages={setMessages}
             refreshUsers={refreshUsers}
+            refreshAdminData={refreshAdminData}
             onClose={() => setShowAdminPanel(false)}
             pushNotif={pushNotif}
           />

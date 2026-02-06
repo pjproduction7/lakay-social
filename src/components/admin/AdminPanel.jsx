@@ -6,6 +6,10 @@ export default function AdminPanel({
   currentUser, 
   isAdmin, 
   allUsers,
+  adminUsers,
+  userRoles,
+  adminStats,
+  adminLogs,
   bannedUsers,
   setBannedUsers,
   shadowBannedUsers,
@@ -14,6 +18,7 @@ export default function AdminPanel({
   setModerators,
   setMessages,
   refreshUsers,
+  refreshAdminData,
   onClose,
   pushNotif
 }) {
@@ -26,33 +31,54 @@ export default function AdminPanel({
   const [passwordTarget, setPasswordTarget] = useState('');
   const [newPassword, setNewPassword] = useState('');
 
-  const handleToggleBan = (user) => {
-    if (bannedUsers.includes(user)) {
-      setBannedUsers(prev => prev.filter(u => u !== user));
-      pushNotif(`✅ Unbanned ${user}`);
-    } else {
-      setBannedUsers(prev => [...prev, user]);
-      pushNotif(`🚫 Banned ${user}`);
+  const handleToggleBan = async (user) => {
+    try {
+      const { assignUserRole, removeUserRole } = await import('../../services/auth');
+      if (bannedUsers.includes(user)) {
+        await removeUserRole(user, 'banned');
+        setBannedUsers(prev => prev.filter(u => u !== user));
+        pushNotif(`✅ Unbanned ${user}`);
+      } else {
+        await assignUserRole(user, 'banned');
+        setBannedUsers(prev => [...prev, user]);
+        pushNotif(`🚫 Banned ${user}`);
+      }
+    } catch (err) {
+      pushNotif(`❌ Failed to toggle ban: ${err.message}`);
     }
   };
 
-  const handleShadowBan = (user) => {
-    if (shadowBannedUsers.includes(user)) {
-      setShadowBannedUsers(prev => prev.filter(u => u !== user));
-      pushNotif(`✅ ${user} unshadow banned`);
-    } else {
-      setShadowBannedUsers(prev => [...prev, user]);
-      pushNotif(`👻 ${user} shadow banned`);
+  const handleShadowBan = async (user) => {
+    try {
+      const { assignUserRole, removeUserRole } = await import('../../services/auth');
+      if (shadowBannedUsers.includes(user)) {
+        await removeUserRole(user, 'shadow_banned');
+        setShadowBannedUsers(prev => prev.filter(u => u !== user));
+        pushNotif(`✅ ${user} unshadow banned`);
+      } else {
+        await assignUserRole(user, 'shadow_banned');
+        setShadowBannedUsers(prev => [...prev, user]);
+        pushNotif(`👻 ${user} shadow banned`);
+      }
+    } catch (err) {
+      pushNotif(`❌ Failed to toggle shadow ban: ${err.message}`);
     }
   };
 
-  const handleToggleModerator = (user) => {
-    if (moderators.includes(user)) {
-      setModerators(prev => prev.filter(u => u !== user));
-      pushNotif(`✅ ${user} is no longer a moderator`);
-    } else {
-      setModerators(prev => [...prev, user]);
-      pushNotif(`✅ ${user} is now a moderator`);
+  const handleToggleModerator = async (user) => {
+    try {
+      const { assignUserRole, removeUserRole } = await import('../../services/auth');
+      if (moderators.includes(user)) {
+        await removeUserRole(user, 'moderator');
+        setModerators(prev => prev.filter(u => u !== user));
+        pushNotif(`✅ ${user} is no longer a moderator`);
+      } else {
+        await assignUserRole(user, 'moderator');
+        setModerators(prev => [...prev, user]);
+        pushNotif(`✅ ${user} is now a moderator`);
+      }
+    } catch (err) {
+      pushNotif(`❌ Failed to toggle moderator: ${err.message}`);
     }
   };
 
@@ -140,21 +166,26 @@ export default function AdminPanel({
         </div>
 
         {/* Stats */}
-        <div className="p-6 grid grid-cols-3 gap-4">
+        <div className="p-6 grid grid-cols-4 gap-4">
           <div className="bg-blue-600 rounded-xl p-4">
             <div className="text-3xl mb-2">👥</div>
-            <div className="text-white text-2xl font-bold">{allUsers.length}</div>
+            <div className="text-white text-2xl font-bold">{adminStats.totalUsers || allUsers.length}</div>
             <div className="text-white/80 text-sm">Total Users</div>
+          </div>
+          <div className="bg-green-600 rounded-xl p-4">
+            <div className="text-3xl mb-2">📝</div>
+            <div className="text-white text-2xl font-bold">{adminStats.totalPosts || 0}</div>
+            <div className="text-white/80 text-sm">Total Posts</div>
+          </div>
+          <div className="bg-purple-600 rounded-xl p-4">
+            <div className="text-3xl mb-2">💬</div>
+            <div className="text-white text-2xl font-bold">{adminStats.totalMessages || 0}</div>
+            <div className="text-white/80 text-sm">Total Messages</div>
           </div>
           <div className="bg-red-600 rounded-xl p-4">
             <div className="text-3xl mb-2">🚫</div>
             <div className="text-white text-2xl font-bold">{bannedUsers.length}</div>
             <div className="text-white/80 text-sm">Banned</div>
-          </div>
-          <div className="bg-yellow-600 rounded-xl p-4">
-            <div className="text-3xl mb-2">👻</div>
-            <div className="text-white text-2xl font-bold">{shadowBannedUsers.length}</div>
-            <div className="text-white/80 text-sm">Shadow Banned</div>
           </div>
         </div>
 
@@ -336,6 +367,32 @@ export default function AdminPanel({
               })}
             </div>
           </div>
+
+          {/* Logs */}
+          <div className="bg-gray-700 rounded-xl p-6 mb-6">
+            <h4 className="text-xl font-bold text-white mb-4">📋 Recent Activity</h4>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {adminLogs.recentUsers?.length > 0 && (
+                <div>
+                  <h5 className="text-white font-semibold">New Users:</h5>
+                  {adminLogs.recentUsers.map((user, i) => (
+                    <div key={i} className="text-white/80 text-sm">• {user.username} ({new Date(user.created_at).toLocaleDateString()})</div>
+                  ))}
+                </div>
+              )}
+              {adminLogs.recentRoleChanges?.length > 0 && (
+                <div>
+                  <h5 className="text-white font-semibold">Role Changes:</h5>
+                  {adminLogs.recentRoleChanges.map((change, i) => (
+                    <div key={i} className="text-white/80 text-sm">• {change.granted_by} {change.role === 'banned' ? 'banned' : change.role === 'moderator' ? 'made moderator' : 'assigned role'} {change.target} ({new Date(change.granted_at).toLocaleDateString()})</div>
+                  ))}
+                </div>
+              )}
+              {(!adminLogs.recentUsers?.length && !adminLogs.recentRoleChanges?.length) && (
+                <div className="text-white/60 text-sm">No recent activity</div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -348,14 +405,19 @@ AdminPanel.propTypes = {
   currentUser: PropTypes.string.isRequired,
   isAdmin: PropTypes.bool.isRequired,
   allUsers: PropTypes.array.isRequired,
+  adminUsers: PropTypes.array,
+  userRoles: PropTypes.object,
+  adminStats: PropTypes.object,
+  adminLogs: PropTypes.object,
   bannedUsers: PropTypes.array.isRequired,
   setBannedUsers: PropTypes.func.isRequired,
   shadowBannedUsers: PropTypes.array.isRequired,
   setShadowBannedUsers: PropTypes.func.isRequired,
   moderators: PropTypes.array.isRequired,
   setModerators: PropTypes.func.isRequired,
-  setMessages: PropTypes.func,
+  setMessages: PropTypes.func.isRequired,
   refreshUsers: PropTypes.func,
+  refreshAdminData: PropTypes.func,
   onClose: PropTypes.func.isRequired,
   pushNotif: PropTypes.func.isRequired,
 };

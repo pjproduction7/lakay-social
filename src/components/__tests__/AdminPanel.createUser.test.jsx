@@ -17,6 +17,10 @@ test('quick create user calls adminCreateUser and refreshes users', async () => 
       currentUser={'admin'}
       isAdmin={true}
       allUsers={['admin']}
+      adminUsers={[]}
+      userRoles={{}}
+      adminStats={{ totalUsers: 1, totalPosts: 0, totalMessages: 0 }}
+      adminLogs={{ recentUsers: [], recentRoleChanges: [] }}
       bannedUsers={[]}
       setBannedUsers={() => {}}
       shadowBannedUsers={[]}
@@ -25,6 +29,7 @@ test('quick create user calls adminCreateUser and refreshes users', async () => 
       setModerators={() => {}}
       setMessages={() => {}}
       refreshUsers={refreshUsers}
+      refreshAdminData={() => {}}
       onClose={() => {}}
       pushNotif={pushNotif}
     />

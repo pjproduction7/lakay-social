@@ -49,6 +49,42 @@ export async function deleteUser(username) {
   });
 }
 
+export async function assignUserRole(username, role) {
+  return apiRequest(`/admin/users/${encodeURIComponent(username)}/role`, {
+    method: "POST",
+    body: { role },
+    auth: true,
+  });
+}
+
+export async function removeUserRole(username, role) {
+  return apiRequest(`/admin/users/${encodeURIComponent(username)}/role/${encodeURIComponent(role)}`, {
+    method: "DELETE",
+    auth: true,
+  });
+}
+
+export async function getUserRoles(username) {
+  return apiRequest(`/admin/users/${encodeURIComponent(username)}/roles`, {
+    method: "GET",
+    auth: true,
+  });
+}
+
+export async function getAdminLogs() {
+  return apiRequest("/admin/logs", {
+    method: "GET",
+    auth: true,
+  });
+}
+
+export async function getAdminStats() {
+  return apiRequest("/admin/stats", {
+    method: "GET",
+    auth: true,
+  });
+}
+
 export async function adminCreateUser({ username, password, email }) {
   // Use the public signup endpoint to create a new user (admin may use this for quick create)
   const result = await apiRequest('/auth/signup', {
