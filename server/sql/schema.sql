@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS profiles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-<<<<<<< HEAD
 CREATE TABLE IF NOT EXISTS profile_photos (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -32,8 +31,6 @@ CREATE INDEX IF NOT EXISTS idx_profile_photos_username ON profile_photos(usernam
 ALTER TABLE profiles
     ADD COLUMN IF NOT EXISTS primary_photo_id INTEGER REFERENCES profile_photos(id);
 
-=======
->>>>>>> 656fd6bf657cb4b3c8a5efca23efa63605b7193f
 CREATE TABLE IF NOT EXISTS messages (
     id SERIAL PRIMARY KEY,
     sender VARCHAR(32) NOT NULL,
@@ -43,7 +40,6 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages (sender, recipient, created_at);
-<<<<<<< HEAD
 
 CREATE TABLE IF NOT EXISTS posts (
     id SERIAL PRIMARY KEY,
@@ -77,5 +73,4 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     subscription JSONB NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
-=======
->>>>>>> 656fd6bf657cb4b3c8a5efca23efa63605b7193f
+

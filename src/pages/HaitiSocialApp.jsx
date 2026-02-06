@@ -123,6 +123,10 @@ export default function HaitiSocialApp() {
   const [editLocation, setEditLocation] = useState("");
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
 
+  // AI photo filter usage state
+  const [aiFiltersEnabled, setAiFiltersEnabled] = useState(false);
+  const [selectedFilterStyle, setSelectedFilterStyle] = useState(DEFAULT_FILTER_STYLE);
+
   // Photo delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletePhotoId, setDeletePhotoId] = useState(null);
@@ -692,12 +696,8 @@ export default function HaitiSocialApp() {
 
       setIsUploadingPhotos(true);
       try {
-<<<<<<< HEAD
         const filterToUse = aiFiltersEnabled ? selectedFilterStyle : "original";
-        await uploadProfilePhotos({ files: fileList });
-=======
-        await uploadProfilePhotos(fileList);
->>>>>>> origin/main
+        await uploadProfilePhotos({ files: fileList, filter: filterToUse });
         await loadProfile(currentUser);
         await refreshUsers();
         pushNotif("📸 Photo uploaded");
@@ -934,7 +934,6 @@ export default function HaitiSocialApp() {
     loadProfile(currentUser);
   }, [currentUser, loadProfile]);
 
-<<<<<<< HEAD
   useEffect(() => {
     const bootstrapFilterMetadata = async () => {
       try {
@@ -947,9 +946,6 @@ export default function HaitiSocialApp() {
 
     bootstrapFilterMetadata();
   }, []);
-=======
-  // Removed filter metadata effect
->>>>>>> origin/main
 
   useEffect(() => {
     if (screen === "privateMessages" && currentUser) {
@@ -1973,7 +1969,6 @@ export default function HaitiSocialApp() {
 
     return (
       <Shell title={`👤 ${u}`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-<<<<<<< HEAD
         <ProfileView
           u={u}
           isMe={isMe}
@@ -2209,7 +2204,6 @@ export default function HaitiSocialApp() {
             </div>
           )}
         </div>
->>>>>>> origin/main
       </Shell>
     );
   }
