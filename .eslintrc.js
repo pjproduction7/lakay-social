@@ -22,7 +22,7 @@ module.exports = {
     {
       files: ['**/__tests__/**', '**/*.test.*'],
       env: { vitest: true, jest: true },
-      globals: { test: 'readonly', expect: 'readonly' },
+      globals: { test: 'readonly', expect: 'readonly', vi: 'readonly' },
     },
   ],
 };

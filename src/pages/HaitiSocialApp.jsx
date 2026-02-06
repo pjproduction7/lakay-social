@@ -1,18 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import {
-  Bell, Bookmark, MessageSquare,
-  Moon, Plus, Search, Shield, Star, Sun,
-  ThumbsUp, Users, Volume2, Gamepad2
-} from "lucide-react";
+import { Star } from "lucide-react";
 
 // Components
 import SpinningLogo from '../components/shared/SpinningLogo';
 import Shell from '../components/shared/Shell';
-import HomeButton from '../components/shared/HomeButton';
-import BigButton from '../components/shared/BigButton';
+// Home navigation buttons moved into HomeDashboard component
 import ChatRoom from '../components/chat/ChatRoom';
 
-import PhoneVerification from '../components/auth/PhoneVerification';
 import ChangePassword from '../components/auth/ChangePassword';
 import AdminPanel from '../components/admin/AdminPanel';
 import ModeratorDashboard from '../components/admin/ModeratorDashboard';
@@ -21,8 +15,12 @@ import SnakeGame from '../components/games/SnakeGame';
 import MemoryGame from '../components/games/MemoryGame';
 import TicTacToeGame from '../components/games/TicTacToe';
 import PolicyPopup from '../components/PolicyPopup';
-import OnboardingCard from '../components/shared/OnboardingCard';
 import Feed from '../components/Feed';
+import PartnerHub from '../components/PartnerHub';
+import Music from '../components/Music';
+import GamesMenu from '../components/GamesMenu';
+import FriendsList from '../components/FriendsList';
+import AllUsers from '../components/AllUsers';
 import ProfileView from '../components/ProfileView';
 import Memorials from '../components/Memorials';
 import Classmates from '../components/Classmates';
@@ -345,7 +343,7 @@ export default function HaitiSocialApp() {
 
   // ========== MODALS ==========
   const [showPhoneModal, setShowPhoneModal] = useState(false);
-  const [onboardingModalOpen, setOnboardingModalOpen] = useState(false);
+  const [, setOnboardingModalOpen] = useState(false);
 
   useGoogleTranslate(language);
 
@@ -845,18 +843,7 @@ export default function HaitiSocialApp() {
     );
   };
 
-  const handleDismissOnboarding = useCallback(() => {
-    if (!currentUser) {
-      setOnboardingModalOpen(false);
-      return;
-    }
-    const key = currentUser.toLowerCase();
-    setOnboardingDismissedUsers((prev) => ({
-      ...prev,
-      [key]: true,
-    }));
-    setOnboardingModalOpen(false);
-  }, [currentUser]);
+  // Onboarding dismiss handled inline where needed (handler removed)
 
   // ========== EFFECTS ==========
 
@@ -1676,42 +1663,6 @@ export default function HaitiSocialApp() {
     );
   }
 
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <BigButton icon={<Volume2 size={32} />} label={trans.music} onClick={() => setScreen("music")} color="bg-pink-500" />
-            <BigButton icon={<Gamepad2 size={32} />} label={trans.games} onClick={() => setScreen("games")} color="bg-green-500" />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 mb-6">
-            <BigButton
-              icon={<span className="text-4xl">🤝</span>}
-              label={trans.partnerHub}
-              onClick={() => setScreen("partnerHub")}
-              color="bg-orange-600"
-            />
-          </div>
-
-          {isAdmin && (
-            <button
-              onClick={() => {
-                if (ADMIN_PANEL_ENABLED) {
-                  pushNotif("⏳ Loading admin panel...");
-                  setTimeout(() => setShowAdminPanel(true), 100);
-                } else {
-                  pushNotif("⚠️ Admin dashboard will be available once the backend endpoints are live.");
-                }
-              }}
-              disabled={!ADMIN_PANEL_ENABLED}
-              className={`w-full bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-3 ${ADMIN_PANEL_ENABLED ? 'hover:scale-105 transition' : 'opacity-60 cursor-not-allowed'}`}
-            >
-              <Shield size={24} />
-              🛡️ ADMIN PANEL
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   if (screen === "partnerHub") {
     return (
       <Shell title={`🤝 ${trans.partnerHub}`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
@@ -1932,57 +1883,6 @@ export default function HaitiSocialApp() {
           cardBg={cardBg}
           currentUser={currentUser}
         />
-      </Shell>
-    );
-  }
-
-              <div className="border-t-2 pt-4 mt-4">
-                <h4 className="font-bold text-gray-900 mb-3">💬 Comments ({opinion.comments.length})</h4>
-                
-                <div className="flex gap-2 mb-3">
-                  <input
-                    id={`comment-input-${opinion.id}`}
-                    placeholder="Share your thoughts..."
-                    className="flex-1 p-3 border-2 rounded-lg text-black"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && e.target.value.trim()) {
-                        handleCommentOpinion(opinion.id, e.target.value);
-                        e.target.value = '';
-                      }
-                    }}
-                  />
-                  <button 
-                    onClick={() => {
-                      const input = document.getElementById(`comment-input-${opinion.id}`);
-                      if (input.value.trim()) {
-                        handleCommentOpinion(opinion.id, input.value);
-                        input.value = '';
-                      }
-                    }}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700"
-                  >
-                    Post
-                  </button>
-                </div>
-
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {opinion.comments.map(comment => (
-                    <div key={comment.id} className="bg-white border-l-4 border-blue-600 p-3 rounded-r-lg shadow-sm">
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-xs text-blue-800">{comment.user}</span>
-                        <button onClick={() => handleLikeComment(opinion.id, comment.id)} className="flex items-center gap-1">
-                          <span className="text-red-500">❤️</span>
-                          <span className="text-xs font-bold text-gray-700">{comment.likes || 0}</span>
-                        </button>
-                      </div>
-                      <div className="text-sm text-gray-900 mt-1">{comment.text}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          );
-        })}
       </Shell>
     );
   }

@@ -11,7 +11,6 @@ export default function HomeDashboard({
   language,
   setLanguage,
   showPhoneModal,
-  setShowPhoneModal,
   notifications,
   getTotalUnreadCount,
   setScreen,
@@ -21,10 +20,6 @@ export default function HomeDashboard({
   ADMIN_PANEL_ENABLED,
   pushNotif,
   handleLogout,
-  pendingProfileSteps,
-  profileProgress,
-  shouldShowOnboardingCard,
-  setOnboardingModalOpen,
   setShowAdminPanel,
 }) {
   return (
@@ -127,7 +122,6 @@ HomeDashboard.propTypes = {
   language: PropTypes.string.isRequired,
   setLanguage: PropTypes.func.isRequired,
   showPhoneModal: PropTypes.bool,
-  setShowPhoneModal: PropTypes.func,
   notifications: PropTypes.array.isRequired,
   getTotalUnreadCount: PropTypes.func.isRequired,
   setScreen: PropTypes.func.isRequired,
@@ -138,4 +132,5 @@ HomeDashboard.propTypes = {
   pushNotif: PropTypes.func.isRequired,
   handleLogout: PropTypes.func.isRequired,
   setShowAdminPanel: PropTypes.func.isRequired,
+  // Note: other onboarding/profile props are passed from page but not used here intentionally.
 };
