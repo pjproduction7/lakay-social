@@ -3,11 +3,19 @@ import { Router } from "express";
 import { z } from "zod";
 import { query } from "../db.js";
 import multer from "multer";
+import cloudinary from "cloudinary";
 import { requireAuth } from "../middleware/auth.js";
 import path from "path";
 import { promises as fs } from "fs";
 
 const router = Router();
+
+// Configure Cloudinary
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 
 // Ensure soft-delete columns exist for profile_photos
@@ -21,29 +29,9 @@ const router = Router();
   }
 })();
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const uploadDir = path.resolve(process.cwd(), 'public', 'uploads');
-    console.log('Upload destination:', uploadDir);
-    try {
-      await fs.mkdir(uploadDir, { recursive: true });
-      console.log('Upload directory created/verified');
-      cb(null, uploadDir);
-    } catch (err) {
-      console.error('Failed to create upload directory:', err);
-      cb(err);
-    }
-  },
-  filename: (req, file, cb) => {
-    const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}${path.extname(file.originalname)}`;
-    console.log('Generated filename:', uniqueName);
-    cb(null, uniqueName);
-  }
-});
-
+// Configure multer for file uploads (memory storage for Cloudinary)
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
@@ -159,8 +147,24 @@ router.post("/photos", requireAuth, upload.array('photos', 6), async (req, res) 
     const uploadedPhotos = [];
 
     for (const file of req.files) {
-      console.log('Processing file:', file.filename, 'at', file.path);
-      const photoUrl = `/uploads/${file.filename}`;
+      console.log('Processing file:', file.originalname);
+      
+      // Upload to Cloudinary
+      const cloudinaryResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.v2.uploader.upload_stream(
+          {
+            folder: process.env.CLOUDINARY_FOLDER || "lakay/profiles",
+            resource_type: "image",
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(file.buffer);
+      });
+      
+      const photoUrl = cloudinaryResult.secure_url;
       
       const result = await query(
         `INSERT INTO profile_photos (user_id, username, photo_url, filter_style, is_primary)
