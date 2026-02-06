@@ -1820,9 +1820,11 @@ export default function HaitiSocialApp() {
   // ========== RENDER: NOTIFICATIONS ==========
 
   if (screen === "notifications") {
+    // Use a lighter card background for notifications to improve contrast in dark mode
+    const notifCardBg = darkMode ? 'bg-gray-800/60' : 'bg-white';
     return (
       <Shell title={`🔔 ${trans.notifications}`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-        <Notifications notifications={notifications} removeNotification={(id) => {
+        <Notifications notifications={notifications} cardBg={notifCardBg} removeNotification={(id) => {
           if (id === 'all') return setNotifications([]);
           removeNotification(id);
         }} />

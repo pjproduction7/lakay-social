@@ -49,10 +49,16 @@ export async function deleteUser(username) {
   });
 }
 
-export async function adminCreateUser() {
-  throw new Error("User creation is unavailable in this static version.");
+export async function adminCreateUser({ username, password, email }) {
+  // Use the public signup endpoint to create a new user (admin may use this for quick create)
+  const result = await apiRequest('/auth/signup', {
+    method: 'POST',
+    body: { username, password, email }
+  });
+  return result;
 }
 
 export async function adminChangePassword() {
-  throw new Error("Password reset is unavailable in this static version.");
+  // Keep default behavior for now; admin password reset implementation may be added later
+  throw new Error('Password reset is unavailable in this static version.');
 }

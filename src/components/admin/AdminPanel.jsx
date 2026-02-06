@@ -63,8 +63,27 @@ export default function AdminPanel({
     }
   };
 
-  const handleCreateUser = () => {
-    pushNotif('❌ User creation is unavailable in this static version.');
+  const handleCreateUser = async () => {
+    const username = newUserForm.username?.trim();
+    const password = newUserForm.password?.trim() || `pw_${Date.now()}`;
+    const email = newUserForm.email?.trim() || undefined;
+
+    if (!username) {
+      pushNotif('⚠️ Please provide a username');
+      return;
+    }
+
+    try {
+      pushNotif('⏳ Creating user...');
+      // import live function dynamically so tests can mock it
+      const { adminCreateUser } = await import('../../services/auth');
+      await adminCreateUser({ username, password, email });
+      setNewUserForm({ username: '', email: '', password: '' });
+      pushNotif(`✅ Created user ${username}. Temporary password set.`);
+      await refreshUsers?.();
+    } catch (err) {
+      pushNotif(`❌ Failed to create user: ${err.message || err}`);
+    }
   };
 
   const handleDeleteUser = async () => {
