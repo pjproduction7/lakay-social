@@ -6,6 +6,7 @@ export default function PrivateChat({ currentUser, otherUser, privateMessages, b
   const [messageText, setMessageText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef(null);
+  const sendingRef = useRef(false);
 
   const conversation = privateMessages.filter(
     msg => 
@@ -18,6 +19,8 @@ export default function PrivateChat({ currentUser, otherUser, privateMessages, b
   }, [conversation]);
 
   const handleSendMessage = async () => {
+    if (sendingRef.current) return;
+
     const trimmedMessage = messageText.trim();
     if (!trimmedMessage || !otherUser) {
       return;
@@ -37,14 +40,16 @@ export default function PrivateChat({ currentUser, otherUser, privateMessages, b
       return;
     }
 
+    sendingRef.current = true;
+    setIsSending(true);
     try {
-      setIsSending(true);
       await onSendMessage(trimmedMessage);
       setMessageText('');
     } catch (err) {
       alert(err?.message || '❌ Failed to send message');
     } finally {
       setIsSending(false);
+      sendingRef.current = false;
     }
   };
 
@@ -64,10 +69,10 @@ export default function PrivateChat({ currentUser, otherUser, privateMessages, b
             <p>No messages yet. Start the conversation! 👋</p>
           </div>
         ) : (
-          conversation.map((msg) => {
+          conversation.map((msg, index) => {
             const isMe = msg.from === currentUser;
             return (
-              <div key={msg.id} className={`mb-3 flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+              <div key={`${msg.id}-${msg.createdAt}-${index}`} className={`mb-3 flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[70%] ${isMe ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-900'} rounded-2xl px-4 py-2 shadow`}>
                   <p className="text-sm font-semibold mb-1">{msg.from}</p>
                   <p className="text-sm">{msg.message}</p>

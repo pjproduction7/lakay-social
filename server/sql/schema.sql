@@ -36,8 +36,13 @@ CREATE TABLE IF NOT EXISTS messages (
     sender VARCHAR(32) NOT NULL,
     recipient VARCHAR(32),
     content TEXT NOT NULL,
+    -- message type: 'public' or 'private' (nullable for backwards compatibility)
+    type VARCHAR(20) DEFAULT 'public',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Backfill any existing rows where type is NULL
+UPDATE messages SET type = (CASE WHEN recipient IS NULL THEN 'public' ELSE 'private' END) WHERE type IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_messages_thread ON messages (sender, recipient, created_at);
 

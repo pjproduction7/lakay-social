@@ -1,0 +1,28 @@
+name: Run DB Migrations (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      database_url:
+        description: 'DATABASE_URL to run migrations against (optional; will use environment secret if omitted)'
+        required: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install server deps
+        run: npm ci --prefix server
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: ${{ inputs.database_url || secrets.DATABASE_URL }}
+        run: npm --prefix server run migrate

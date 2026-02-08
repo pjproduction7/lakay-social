@@ -1,0 +1,116 @@
+name: PR Coverage
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  pr-coverage:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lakay_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/lakay_test
+      VITE_API_BASE_URL: http://localhost:4000
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Wait for Postgres
+        run: |
+          n=0
+          until pg_isready -h localhost -p 5432 -U postgres || [ $n -ge 30 ]; do
+            echo "Waiting for Postgres... ($n)"
+            n=$((n+1))
+            sleep 1
+          done
+
+      - name: Setup database
+        run: node setup-db.js
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Run tests with coverage
+        run: npx vitest run --coverage --reporter dot
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage
+            coverage/lcov.info
+
+      - name: Upload coverage to Codecov
+        if: ${{ secrets.CODECOV_TOKEN != '' }}
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/lcov.info
+          flags: pr
+          fail_ci_if_error: false
+          # Request a PR comment from Codecov (non-fatal if not configured)
+          comment: true
+
+      - name: Post coverage summary comment to PR
+        if: always()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            let body = '';
+            const reportPath = 'coverage/coverage-summary.json';
+            if (!fs.existsSync(reportPath)) {
+              body = `⚠️ Coverage report not found. Tests or coverage generation may have failed.\n\nView the workflow run for details: ${runUrl}`;
+            } else {
+              const summary = JSON.parse(fs.readFileSync(reportPath, 'utf8')).total;
+              body = `**Coverage summary**\n\n| Metric | % |\n|---|---:|\n| Statements | ${summary.statements.pct}% |\n| Branches | ${summary.branches.pct}% |\n| Functions | ${summary.functions.pct}% |\n| Lines | ${summary.lines.pct}% |\n\n`;
+              const thresholds = { statements: 80, branches: 70, functions: 80, lines: 80 };
+              const fails = Object.entries(thresholds).filter(([k,v]) => (summary[k].pct ?? 0) < v);
+              if (fails.length) {
+                body += `⚠️ Coverage thresholds not met for: ${fails.map(([k]) => k).join(', ')}.\n\nPlease add tests or adjust thresholds if intentional.`;
+              } else {
+                body += '✅ Coverage meets the configured thresholds.';
+              }
+              body += `\n\nDownload the coverage artifacts from the workflow run: ${runUrl} (artifact name: coverage-report)`;
+            }
+
+            const prNumber = context.payload.pull_request && context.payload.pull_request.number;
+            if (prNumber) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body
+              });
+            } else {
+              core.info('No pull request number available; skipping PR comment');
+            }
+      - name: Skip Codecov upload (no token)
+        if: ${{ secrets.CODECOV_TOKEN == '' }}
+        run: echo "CODECOV_TOKEN not set; skipping Codecov upload"

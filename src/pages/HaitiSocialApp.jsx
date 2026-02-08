@@ -30,6 +30,7 @@ import HomeDashboard from '../components/HomeDashboard';
 import Politics from '../components/Politics';
 import useGoogleTranslate from '../hooks/useGoogleTranslate';
 import useChatSocket from '../hooks/useChatSocket';
+import { mergePrivateMessage } from '../utils/privateMessages';
 
 
 // Services & Utils
@@ -597,6 +598,7 @@ export default function HaitiSocialApp() {
     [currentUser]
   );
 
+
   const refreshPrivateMessages = useCallback(async () => {
     if (!currentUser) {
       return;
@@ -626,13 +628,7 @@ export default function HaitiSocialApp() {
       if (!mapped) {
         return;
       }
-      setPrivateMessages((prev) => {
-        const alreadyExists = prev.some((msg) => msg.id === mapped.id);
-        if (alreadyExists) {
-          return prev.map((msg) => (msg.id === mapped.id ? { ...msg, ...mapped } : msg));
-        }
-        return [...prev, mapped];
-      });
+      setPrivateMessages((prev) => mergePrivateMessage(prev, mapped));
     },
     [mapRemotePrivateMessage]
   );
@@ -655,7 +651,13 @@ export default function HaitiSocialApp() {
         const created = await sendPrivateMessageRequest({ recipient: cleanRecipient, content: cleanMessage });
         const mapped = mapRemotePrivateMessage(created);
         if (mapped) {
-          setPrivateMessages((prev) => [...prev, mapped]);
+          setPrivateMessages((prev) => {
+            const exists = prev.some((m) => m.id === mapped.id);
+            if (exists) {
+              return prev.map((m) => (m.id === mapped.id ? { ...m, ...mapped } : m));
+            }
+            return [...prev, mapped];
+          });
         }
       } catch (err) {
         console.error(err);
@@ -2044,213 +2046,9 @@ export default function HaitiSocialApp() {
           onSaveProfile={() => handleSaveProfile(u)}
           onChangePassword={() => setScreen("changePassword")}
           onMessage={() => { setCurrentChatUser(u); setScreen("privateMessages"); }}
+
         />
-=======
-        <div className={`${cardBg} rounded-xl p-5 shadow`}>
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center text-3xl">
-              {p.photoDataUrl ? (
-                <img src={p.photoDataUrl} alt="profile" className="w-full h-full object-cover" loading="lazy" />
-              ) : (
-                "👤"
-              )}
-            </div>
 
-            <div className="flex-1">
-              <div className="text-xl font-bold text-gray-900">{p.displayName || u}</div>
-              <div className="text-sm text-gray-600">@{u}</div>
-              <div className="text-sm text-gray-600 mt-1">{p.location || "No location set"}</div>
-            </div>
-          </div>
-
-          {isMe && (
-            <div className="mt-6">
-                {/* Removed AI Photo Filters UI */}
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                <div className="font-bold text-gray-900">AI Photo Filters</div>
-                <div className="text-sm text-gray-600">{(p.photos?.length || 0)} / {MAX_PROFILE_PHOTOS} photos</div>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                {PHOTO_FILTERS.map((filter) => {
-                  const disabled = !aiFiltersEnabled && filter.id !== "original";
-                  const isSelected = selectedFilterStyle === filter.id;
-                  return (
-                    <button
-                      key={filter.id}
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => setSelectedFilterStyle(filter.id)}
-                      className={`text-left rounded-xl border p-3 transition ${isSelected ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-blue-400"} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                    >
-                      <div className="flex items-center justify-between text-sm font-semibold text-gray-900">
-                        <span>{filter.label}</span>
-                        <span className={`text-xs ${filter.id === "original" ? "text-gray-500" : "text-purple-600"}`}>
-                          {filter.id === "original" ? "No AI" : "AI"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-600 mt-1">{filter.description}</p>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {!aiFiltersEnabled && (
-                <p className="text-xs text-amber-600 mt-2">
-                  AI filters are temporarily unavailable. Uploads will use the original photo.
-                </p>
-              )}
-
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <label
-                  className={`px-4 py-2 rounded-lg font-semibold text-white cursor-pointer ${isUploadingPhotos ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"}`}
-                >
-                  {isUploadingPhotos ? "Uploading..." : "Upload Photos"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    disabled={isUploadingPhotos}
-                    onChange={(e) => handleProfilePhotoUpload(e.target.files)}
-                  />
-                </label>
-                <div className="text-sm text-gray-600">
-                  Supports JPG, PNG, WEBP. Maximum {MAX_PROFILE_PHOTOS} photos.
-                </div>
-                <div className="text-xs text-gray-500">
-                  Tip: Hold Ctrl (or Command on Mac) to select multiple photos at once.
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-4">
-            <div className="font-bold text-gray-900 mb-2">Bio</div>
-            {isMe ? (
-              <textarea
-                className="w-full p-3 rounded-lg border-2 text-gray-900"
-                rows={3}
-                value={editBio}
-                onChange={(e) => setEditBio(e.target.value)}
-                placeholder="Tell people about you..."
-              />
-            ) : (
-              <div className="text-gray-800 bg-gray-100 p-3 rounded-lg">{p.bio || "No bio yet."}</div>
-            )}
-          </div>
-
-          <div className="mt-6">
-            <div className="font-bold text-gray-900 mb-2">Photo Gallery</div>
-            {p.photos?.length ? (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {p.photos.map((photo) => (
-                  <div key={photo.id} className="rounded-xl border border-gray-200 p-3">
-                    <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
-                      <img src={photo.photo_url} alt="Profile" className="w-full h-full object-cover" loading="lazy" />
-                    </div>
-                    <div className="flex items-center justify-between mt-2 text-sm text-gray-700">
-                      <span>{FILTER_LABEL_LOOKUP[photo.filter_style] || "Original"}</span>
-                      {photo.is_primary && <span className="text-green-600 font-semibold">Primary</span>}
-                    </div>
-                    {isMe && (
-                      <div className="flex gap-2 mt-3">
-                        {!photo.is_primary && (
-                          <button
-                            onClick={() => handleSetPrimaryPhoto(photo.id)}
-                            className="flex-1 rounded-lg border border-blue-600 text-blue-600 px-3 py-1 text-sm hover:bg-blue-50"
-                          >
-                            Make Primary
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeletePhoto(photo.id)}
-                          className="flex-1 rounded-lg border border-red-500 text-red-500 px-3 py-1 text-sm hover:bg-red-50"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-gray-600 bg-gray-100 rounded-lg p-4">No photos yet.</div>
-            )}
-          </div>
-
-          {isMe && (
-            <>
-              <div className="mt-4">
-                <div className="font-bold text-gray-900 mb-2">Display Name</div>
-                <input
-                  className="w-full p-3 rounded-lg border-2 text-gray-900"
-                  value={editDisplayName}
-                  onChange={(e) => setEditDisplayName(e.target.value)}
-                  placeholder="Your display name"
-                />
-              </div>
-              <div className="mt-4">
-                <div className="font-bold text-gray-900 mb-2">Location</div>
-                <input
-                  className="w-full p-3 rounded-lg border-2 text-gray-900"
-                  value={editLocation}
-                  onChange={(e) => setEditLocation(e.target.value)}
-                  placeholder="City / Country"
-                />
-              </div>
-              <button
-                onClick={async () => {
-                  if (!currentUser) {
-                    pushNotif("⚠️ Please log in to update your profile");
-                    return;
-                  }
-                  try {
-                    await updateUserProfile({
-                      displayName: editDisplayName || currentUser,
-                      bio: editBio,
-                      location: editLocation,
-                    });
-                    setProfiles((prev) => ({
-                      ...prev,
-                      [u]: { ...p, displayName: editDisplayName, bio: editBio, location: editLocation },
-                    }));
-                    await loadProfile(currentUser);
-                    await refreshUsers();
-                    pushNotif("✅ Profile updated!");
-                    setTimeout(() => setScreen("home"), 1000);
-                  } catch (err) {
-                    pushNotif(`❌ Failed to update profile: ${err?.message || "Unknown error"}`);
-                  }
-                }}
-                className="mt-4 w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700"
-              >
-                Save Profile
-              </button>
-
-              <button
-                onClick={() => setScreen("changePassword")}
-                className="mt-3 w-full bg-purple-600 text-white font-bold py-3 rounded-xl hover:bg-purple-700"
-              >
-                Change Password
-              </button>
-            </>
-          )}
-
-          {!isMe && (
-            <div className="mt-4">
-              <button
-                onClick={() => {
-                  setCurrentChatUser(u);
-                  setScreen("privateMessages");
-                }}
-                className="w-full bg-teal-600 text-white font-bold py-3 rounded-xl hover:bg-teal-700"
-              >
-                Send Message
-              </button>
-            </div>
-          )}
-        </div>
       </Shell>
     );
   }
