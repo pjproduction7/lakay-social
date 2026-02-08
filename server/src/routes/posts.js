@@ -126,8 +126,11 @@ router.get("/", async (_req, res) => {
 });
 
 router.post("/", requireAuth, async (req, res) => {
+  console.log('POST /posts request body:', req.body);
   const parse = createPostSchema.safeParse(req.body);
+  console.log('Parse result:', parse);
   if (!parse.success) {
+    console.log('Validation errors:', parse.error.flatten().fieldErrors);
     return res.status(400).json({ error: parse.error.flatten().fieldErrors });
   }
 
