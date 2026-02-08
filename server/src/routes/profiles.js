@@ -144,6 +144,8 @@ router.post("/photos", requireAuth, upload.array('photos', 6), async (req, res) 
       return res.status(400).json({ error: "No files uploaded" });
     }
 
+    const addToProfile = req.body.addToProfile !== 'false'; // default true
+
     const uploadedPhotos = [];
 
     for (const file of req.files) {
@@ -166,34 +168,46 @@ router.post("/photos", requireAuth, upload.array('photos', 6), async (req, res) 
       
       const photoUrl = cloudinaryResult.secure_url;
       
-      const result = await query(
-        `INSERT INTO profile_photos (user_id, username, photo_url, filter_style, is_primary)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING id, photo_url, filter_style, is_primary, created_at`,
-        [req.user.id, req.user.username, photoUrl, 'original', false]
-      );
-      
-      uploadedPhotos.push(result.rows[0]);
+      if (addToProfile) {
+        const result = await query(
+          `INSERT INTO profile_photos (user_id, username, photo_url, filter_style, is_primary)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING id, photo_url, filter_style, is_primary, created_at`,
+          [req.user.id, req.user.username, photoUrl, 'original', false]
+        );
+        
+        uploadedPhotos.push(result.rows[0]);
+      } else {
+        // For non-profile uploads, just return the URL
+        uploadedPhotos.push({
+          photo_url: photoUrl,
+          filter_style: 'original',
+          is_primary: false,
+          created_at: new Date().toISOString()
+        });
+      }
     }
 
-    // Check if user has a primary photo, if not, set the first uploaded photo as primary
-    const primaryCheck = await query(
-      `SELECT id FROM profile_photos WHERE user_id = $1 AND is_primary = true AND (is_deleted IS NULL OR is_deleted = false)`,
-      [req.user.id]
-    );
+    if (addToProfile) {
+      // Check if user has a primary photo, if not, set the first uploaded photo as primary
+      const primaryCheck = await query(
+        `SELECT id FROM profile_photos WHERE user_id = $1 AND is_primary = true AND (is_deleted IS NULL OR is_deleted = false)`,
+        [req.user.id]
+      );
 
-    if (primaryCheck.rowCount === 0 && uploadedPhotos.length > 0) {
-      const firstPhoto = uploadedPhotos[0];
-      await query(
-        `UPDATE profile_photos SET is_primary = true WHERE id = $1`,
-        [firstPhoto.id]
-      );
-      
-      // Update the profile's primary photo URL
-      await query(
-        `UPDATE profiles SET primary_photo_id = $1, photo_url = $2 WHERE user_id = $3`,
-        [firstPhoto.id, firstPhoto.photo_url, req.user.id]
-      );
+      if (primaryCheck.rowCount === 0 && uploadedPhotos.length > 0) {
+        const firstPhoto = uploadedPhotos[0];
+        await query(
+          `UPDATE profile_photos SET is_primary = true WHERE id = $1`,
+          [firstPhoto.id]
+        );
+        
+        // Update the profile's primary photo URL
+        await query(
+          `UPDATE profiles SET primary_photo_id = $1, photo_url = $2 WHERE user_id = $3`,
+          [firstPhoto.id, firstPhoto.photo_url, req.user.id]
+        );
+      }
     }
 
     res.json({ photos: uploadedPhotos });

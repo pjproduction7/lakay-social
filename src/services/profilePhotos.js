@@ -1,15 +1,17 @@
 import { apiRequest } from "./api";
 
 export async function uploadProfilePhotos(arg) {
-  // Accept either an array of files or an object { files: [], filter }
+  // Accept either an array of files or an object { files: [], filter, addToProfile }
   const files = Array.isArray(arg) ? arg : (arg?.files || []);
   const filter = arg?.filter;
+  const addToProfile = arg?.addToProfile !== false; // default true
 
   const formData = new FormData();
   for (const file of files) {
     formData.append("photos", file);
   }
   if (filter) formData.append('filter', filter);
+  if (!addToProfile) formData.append('addToProfile', 'false');
 
   return apiRequest("/profiles/photos", {
     method: "POST",

@@ -1371,7 +1371,7 @@ export default function HaitiSocialApp() {
 
       if (memorialFile) {
         setIsUploadingPhotos(true);
-        const uploadRes = await uploadProfilePhotos({ files: [memorialFile] });
+        const uploadRes = await uploadProfilePhotos({ files: [memorialFile], addToProfile: false });
         setIsUploadingPhotos(false);
         if (uploadRes && uploadRes.photos && uploadRes.photos.length > 0) {
           imageUrl = uploadRes.photos[0].photo_url;
