@@ -10,7 +10,7 @@ router.use(express.json({ limit: '1mb' }));
 
 
 const createPostSchema = z.object({
-  content: z.string().min(1).max(10000),
+  content: z.string().min(1).max(10000), // Increased for long memorials
   imageUrl: z
     .string()
     .max(200000)
