@@ -26,7 +26,7 @@ router.post("/public", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Message content is required" });
     }
     const result = await query(
-      "INSERT INTO messages (sender, content) VALUES ($1, $2) RETURNING id, sender, content, created_at",
+      "INSERT INTO messages (sender, content, type) VALUES ($1, $2, 'public') RETURNING id, sender, content, created_at",
       [req.user.username, content.trim()]
     );
     const message = result.rows[0];
@@ -81,7 +81,7 @@ router.post("/private", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Recipient and content are required" });
     }
     const result = await query(
-      "INSERT INTO messages (sender, recipient, content) VALUES ($1, $2, $3) RETURNING id, sender, recipient, content, created_at",
+      "INSERT INTO messages (sender, recipient, content, type) VALUES ($1, $2, $3, 'private') RETURNING id, sender, recipient, content, created_at",
       [req.user.username, recipient.toLowerCase(), content.trim()]
     );
     const message = result.rows[0];
