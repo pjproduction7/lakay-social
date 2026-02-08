@@ -9,7 +9,7 @@ const router = Router();
 router.get("/public", async (_req, res) => {
   try {
     const result = await query(
-      "SELECT id, username, content, created_at FROM messages WHERE type = 'public' ORDER BY created_at DESC LIMIT 50"
+      "SELECT id, username as sender, content, created_at FROM messages WHERE recipient IS NULL ORDER BY created_at DESC LIMIT 50"
     );
     res.json(result.rows);
   } catch (err) {
@@ -26,7 +26,7 @@ router.post("/public", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Message content is required" });
     }
     const result = await query(
-      "INSERT INTO messages (username, content, type) VALUES ($1, $2, 'public') RETURNING id, username, content, created_at",
+      "INSERT INTO messages (sender, content) VALUES ($1, $2) RETURNING id, sender, content, created_at",
       [req.user.username, content.trim()]
     );
     const message = result.rows[0];
@@ -44,10 +44,27 @@ router.get("/private/:recipient", requireAuth, async (req, res) => {
     const { recipient } = req.params;
     const result = await query(
       `SELECT id, sender, recipient, content, created_at FROM messages
-       WHERE type = 'private'
+       WHERE recipient IS NOT NULL
        AND ((sender = $1 AND recipient = $2) OR (sender = $2 AND recipient = $1))
        ORDER BY created_at ASC`,
       [req.user.username, recipient.toLowerCase()]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch private messages" });
+  }
+});
+
+// GET /messages/private - Get all private messages for current user
+router.get("/private", requireAuth, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT id, sender, recipient, content, created_at FROM messages
+       WHERE recipient IS NOT NULL
+       AND (sender = $1 OR recipient = $1)
+       ORDER BY created_at ASC`,
+      [req.user.username]
     );
     res.json(result.rows);
   } catch (err) {
@@ -64,7 +81,7 @@ router.post("/private", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Recipient and content are required" });
     }
     const result = await query(
-      "INSERT INTO messages (sender, recipient, content, type) VALUES ($1, $2, $3, 'private') RETURNING id, sender, recipient, content, created_at",
+      "INSERT INTO messages (sender, recipient, content) VALUES ($1, $2, $3) RETURNING id, sender, recipient, content, created_at",
       [req.user.username, recipient.toLowerCase(), content.trim()]
     );
     const message = result.rows[0];

@@ -473,12 +473,12 @@ export default function HaitiSocialApp() {
     const normalizedPhotos = Array.isArray(profile.photos)
       ? profile.photos.map(photo => ({
           ...photo,
-          photo_url: photo.photo_url ? `${getApiBaseUrl()}${photo.photo_url}` : photo.photo_url
+          photo_url: photo.photo_url
         }))
       : Array.isArray(profile.profile?.photos)
         ? profile.profile.photos.map(photo => ({
             ...photo,
-            photo_url: photo.photo_url ? `${getApiBaseUrl()}${photo.photo_url}` : photo.photo_url
+            photo_url: photo.photo_url
           }))
         : [];
     const primaryPhoto = normalizedPhotos.find((photo) => photo.is_primary) || normalizedPhotos[0];
@@ -490,8 +490,8 @@ export default function HaitiSocialApp() {
       location: profile.location || profile.profile?.location || "",
       photoDataUrl:
         profile.photoDataUrl ||
-        (profile.photo_url ? `${getApiBaseUrl()}${profile.photo_url}` : "") ||
-        (primaryPhoto?.photo_url ? `${getApiBaseUrl()}${primaryPhoto.photo_url}` : "") ||
+        profile.photo_url ||
+        primaryPhoto?.photo_url ||
         profile.profile?.photoDataUrl ||
         "",
       photos: normalizedPhotos,

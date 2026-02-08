@@ -5,7 +5,7 @@ const API_BASE_URL = (() => {
     typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_BASE_URL : undefined,
     typeof process !== "undefined" ? process.env?.NEXT_PUBLIC_API_BASE_URL : undefined,
   ];
-  const fallback = "http://localhost:4000";
+  const fallback = "http://localhost:4001";
   const raw = envCandidates.find((value) => typeof value === "string" && value.length > 0) || fallback;
   return raw.replace(/\/$/, "");
 })();
@@ -22,6 +22,9 @@ function safeParse(json) {
 }
 
 export function getApiBaseUrl() {
+  // Debug: show API base for client
+  // This log helps verify the runtime value used by sockets and API calls
+  console.log('getApiBaseUrl ->', API_BASE_URL);
   return API_BASE_URL;
 }
 

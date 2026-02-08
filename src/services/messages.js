@@ -1,12 +1,20 @@
 
 
-// All backend API calls removed for static deployment.
-// Private messaging features are disabled.
+import { apiRequest } from './api.js';
 
+// Fetch all private messages for the current user
 export async function fetchAllPrivateMessages() {
-	return [];
+  return apiRequest('/messages/private', {
+    method: 'GET',
+    auth: true
+  });
 }
 
-export async function sendPrivateMessage() {
-	throw new Error('Private messaging is disabled in static mode.');
+// Send a private message
+export async function sendPrivateMessage({ recipient, content }) {
+  return apiRequest('/messages/private', {
+    method: 'POST',
+    body: { recipient, content },
+    auth: true
+  });
 }

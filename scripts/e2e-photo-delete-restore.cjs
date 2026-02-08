@@ -3,7 +3,7 @@ const path = require('path');
 const fetch = global.fetch;
 (async () => {
   try {
-    const base = 'http://localhost:4000';
+    const base = 'http://localhost:4001';
 
     // 1) Login
     console.log('Logging in as admin...');

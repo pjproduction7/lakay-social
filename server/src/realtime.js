@@ -4,15 +4,25 @@ const userSockets = new Map();
 let ioInstance = null;
 
 function getCorsOrigins() {
-  return ["http://localhost:5173"];
+  // Allow local dev ports dynamically during development
+  return ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"];
 }
 
 export function initRealtime(server) {
   ioInstance = new Server(server, {
     cors: {
-      origin: getCorsOrigins(),
+      // Accept any localhost origin (useful for Vite dev which sometimes picks different ports)
+      origin: (origin, callback) => {
+        if (!origin || origin.startsWith('http://localhost')) {
+          callback(null, true);
+        } else {
+          // For production, you can validate against an allowlist
+          callback(null, false);
+        }
+      },
     },
   });
+  console.log('Realtime initialized (CORS: localhost allowed)');
 
   ioInstance.on("connection", (socket) => {
     socket.on("auth:identify", ({ username }) => {

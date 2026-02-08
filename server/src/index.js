@@ -19,23 +19,37 @@ import { initRealtime } from "./realtime.js";
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
+const PORT = process.env.PORT ? Number(process.env.PORT) : 4001;
 
 const rawAdminUsername = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_USERNAME = rawAdminUsername.trim().toLowerCase();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 
-app.use(helmet());
-app.use(cors({
+// Configure Helmet: disable CSP in development so DevTools and websocket probes work freely
+const helmetOptions = process.env.NODE_ENV === 'production' ? {} : { contentSecurityPolicy: false };
+app.use(helmet(helmetOptions));
+const corsOptions = process.env.NODE_ENV === 'production' ? {
   origin: [
     "https://lakaysocial.com",
     "https://www.lakaysocial.com",
-    "http://localhost:5173",
-    "http://localhost:5176",
     "https://lakay-social-production-361d.up.railway.app"
   ],
   credentials: true
-}));
+} : {
+  // Allow any localhost origin during development (Vite may pick different ports)
+  origin: (origin, callback) => {
+    if (!origin || origin.startsWith('http://localhost')) {
+      return callback(null, true);
+    }
+    const allowed = ["https://lakaysocial.com", "https://www.lakaysocial.com", "https://lakay-social-production-361d.up.railway.app"];
+    if (allowed.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+};
+app.use(cors(corsOptions));
 
 // Rate limiting: 100 requests per 15 minutes per IP
 const limiter = rateLimit({

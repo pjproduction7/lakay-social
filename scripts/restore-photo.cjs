@@ -1,7 +1,7 @@
 (async () => {
   try {
     const fetch = global.fetch;
-    const base = 'http://localhost:4000';
+    const base = 'http://localhost:4001';
     const login = await fetch(base + '/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'admin', password: 'admin123' }) });
     const lj = await login.json();
     const token = lj.token;
