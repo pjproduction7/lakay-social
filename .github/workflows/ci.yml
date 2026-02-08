@@ -65,7 +65,7 @@ jobs:
             coverage
             coverage/lcov.info
       - name: Upload coverage to Codecov
-        if: ${{ secrets.CODECOV_TOKEN != '' }}
+        if: ${{ secrets.CODECOV_TOKEN }}
         uses: codecov/codecov-action@v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -73,7 +73,7 @@ jobs:
           flags: unit
           fail_ci_if_error: false
       - name: Skip Codecov upload (no token)
-        if: ${{ secrets.CODECOV_TOKEN == '' }}
+        if: ${{ !secrets.CODECOV_TOKEN }}
         run: echo "CODECOV_TOKEN not set; skipping Codecov upload"
       - name: Upload HTML coverage as artifact (for quick inspection)
         if: always()
