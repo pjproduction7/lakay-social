@@ -60,6 +60,8 @@ import {
   toggleLike as toggleRemoteLike,
   reactToPost as reactToRemotePost,
   addComment as addRemoteComment,
+  updatePost,
+  deletePost,
 } from '../services/feed';
 
 const DEFAULT_FILTER_STYLE = PHOTO_FILTERS.find((filter) => filter.id !== "original")?.id || "original";
@@ -548,6 +550,7 @@ export default function HaitiSocialApp() {
   }, [pushNotif]);
 
   const refreshAdminData = useCallback(async () => {
+    console.log(`refreshAdminData called, isAdmin=${isAdmin}`);
     if (!isAdmin) return;
     try {
       const { getAllUsers: getAdminUsers, getAdminStats, getAdminLogs } = await import('../services/auth');
@@ -572,7 +575,13 @@ export default function HaitiSocialApp() {
       setUserRoles(roles);
     } catch (err) {
       console.error(err);
-      pushNotif(`❌ Failed to load admin data: ${err?.message || "Unknown error"}`);
+      if (err?.message?.includes('Admin access required')) {
+        console.log('Admin access denied by server, resetting admin status');
+        setIsAdmin(false);
+        pushNotif('⚠️ Admin access denied. Please log in as admin.');
+      } else {
+        pushNotif(`❌ Failed to load admin data: ${err?.message || "Unknown error"}`);
+      }
     }
   }, [isAdmin, pushNotif]);
 
@@ -694,6 +703,51 @@ export default function HaitiSocialApp() {
         timestamp: post.timestamp,
       }));
       setPosts(formatted);
+
+      // Load memorials from posts
+      const memorialsFromPosts = remotePosts
+        .filter(post => {
+          // Memorials have content with double newline separating name/years from tribute
+          const lines = post.content.split('\n');
+          return lines.length >= 2 && lines[1] === '';
+        })
+        .map(post => {
+          const content = post.content;
+          const lines = content.split('\n');
+          
+          // Parse name and years from first line
+          const firstLine = lines[0];
+          let name = firstLine;
+          let years = '';
+          
+          // Check if first line contains years in parentheses
+          const yearMatch = firstLine.match(/^(.+?)\s*\(([^)]+)\)$/);
+          if (yearMatch) {
+            name = yearMatch[1].trim();
+            years = yearMatch[2].trim();
+          }
+          
+          // Everything after the blank line is the tribute
+          const tribute = lines.slice(2).join('\n').trim();
+          
+          return {
+            id: post.id,
+            name,
+            years,
+            tribute,
+            photo: post.image,
+            author: post.user,
+            timestamp: post.timestamp,
+            condolences: Array.isArray(post.comments) ? post.comments.map(comment => ({
+              id: comment.id || `cond_${Date.now()}_${Math.random()}`,
+              author: comment.user || comment.author || 'Anonymous',
+              text: comment.text || comment.content || '',
+              timestamp: comment.timestamp,
+            })) : [],
+          };
+        });
+      
+      setMemorials(memorialsFromPosts);
     } catch (err) {
       console.error(err);
       pushNotif(`❌ Failed to load feed: ${err?.message || "Unknown error"}`);
@@ -956,6 +1010,7 @@ export default function HaitiSocialApp() {
     }
 
     setCurrentUser(session.username);
+    console.log(`Session loaded: username=${session.username}, ADMIN_USERNAME=${ADMIN_USERNAME}, isAdmin=${session.username?.toLowerCase() === ADMIN_USERNAME}`);
     setIsAdmin(session.username?.toLowerCase() === ADMIN_USERNAME);
     setScreen("home");
 
@@ -1224,6 +1279,77 @@ export default function HaitiSocialApp() {
     }
   };
 
+  const handleEditPost = async (postId, newContent) => {
+    if (!currentUser) {
+      pushNotif("⚠️ Please log in to edit posts");
+      return;
+    }
+
+    try {
+      await updatePost(postId, { content: newContent });
+      pushNotif("✏️ Post updated!");
+      await loadFeed();
+    } catch (err) {
+      pushNotif(`❌ Failed to update post: ${err?.message || "Unknown error"}`);
+      await loadFeed();
+    }
+  };
+
+  const handleDeletePost = async (postId) => {
+    if (!currentUser) {
+      pushNotif("⚠️ Please log in to delete posts");
+      return;
+    }
+
+    if (!confirm("Are you sure you want to delete this post?")) {
+      return;
+    }
+
+    try {
+      await deletePost(postId);
+      pushNotif("🗑️ Post deleted!");
+      await loadFeed();
+    } catch (err) {
+      pushNotif(`❌ Failed to delete post: ${err?.message || "Unknown error"}`);
+      await loadFeed();
+    }
+  };
+
+  const handleEditMemorial = async (memorialId, newName, newYears, newTribute) => {
+    if (!currentUser) {
+      pushNotif("⚠️ Please log in to edit memorials");
+      return;
+    }
+
+    try {
+      const content = `${newName}${newYears ? ` (${newYears})` : ""}\n\n${newTribute}`;
+      await updatePost(memorialId, { content });
+      pushNotif("✏️ Memorial updated!");
+      await loadFeed(); // Reload to ensure memorials are up to date
+    } catch (err) {
+      pushNotif(`❌ Failed to update memorial: ${err?.message || "Unknown error"}`);
+    }
+  };
+
+  const handleDeleteMemorial = async (memorialId) => {
+    if (!currentUser) {
+      pushNotif("⚠️ Please log in to delete memorials");
+      return;
+    }
+
+    if (!confirm("Are you sure you want to delete this memorial?")) {
+      return;
+    }
+
+    try {
+      await deletePost(memorialId);
+      pushNotif("🗑️ Memorial deleted!");
+      await loadFeed(); // Reload to ensure memorials are up to date
+    } catch (err) {
+      pushNotif(`❌ Failed to delete memorial: ${err?.message || "Unknown error"}`);
+    }
+  };
+
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -1403,6 +1529,7 @@ export default function HaitiSocialApp() {
       setMemorialFile(null);
 
       pushNotif("✅ Memorial created");
+      await loadFeed(); // Reload to ensure memorials are up to date
     } catch (err) {
       setIsUploadingPhotos(false);
       console.error('Failed to create memorial', err);
@@ -1410,23 +1537,21 @@ export default function HaitiSocialApp() {
     }
   };
 
-  const handleAddCondolence = useCallback((memorialId, text) => {
+  const handleAddCondolence = useCallback(async (memorialId, text) => {
     if (!text || !text.trim()) return;
+    if (!currentUser) {
+      pushNotif("⚠️ Please log in to add condolences");
+      return;
+    }
 
-    setMemorials(prev => prev.map(m => {
-      if (m.id === memorialId) {
-        const newCond = {
-          id: `c_${Date.now()}`,
-          author: currentUser || 'Anonymous',
-          text: text.trim(),
-        };
-        return { ...m, condolences: [...(m.condolences || []), newCond] };
-      }
-      return m;
-    }));
-
-    pushNotif('💐 Condolence posted!');
-  }, [currentUser, pushNotif]);
+    try {
+      await addRemoteComment(memorialId, text.trim());
+      pushNotif('💐 Condolence posted!');
+      await loadFeed(); // Reload to get updated condolences from comments
+    } catch (err) {
+      pushNotif(`❌ Failed to add condolence: ${err?.message || "Unknown error"}`);
+    }
+  }, [currentUser, pushNotif, addRemoteComment, loadFeed]);
 
   const handleAddSchool = () => {
     if (!newSchoolName.trim() || !newSchoolCity.trim() || !newSchoolDepartment.trim()) {
@@ -1737,12 +1862,15 @@ export default function HaitiSocialApp() {
           posts={posts}
           openProfile={openProfile}
           currentUser={currentUser}
+          isAdmin={isAdmin}
           toggleSave={toggleSave}
           handleToggleLike={handleToggleLike}
           handleReaction={handleReaction}
           commentRefs={commentRefs}
           commentTexts={commentTexts}
           handleAddComment={handleAddComment}
+          onEditPost={handleEditPost}
+          onDeletePost={handleDeletePost}
         />
       </Shell>
     );
@@ -1761,6 +1889,64 @@ export default function HaitiSocialApp() {
           onDislike={(id) => setMusicTracks((prev) => prev.map((t) => (t.id === id ? { ...t, dislikes: t.dislikes + 1 } : t)))}
           openProfile={openProfile}
         />
+      </Shell>
+    );
+  }
+
+  // ========== RENDER: HAITI NEWS ==========
+  
+  if (screen === "haitiNews") {
+    return (
+      <Shell title={`📰 Haiti News`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
+        <div className="p-4">
+          <h2 className="text-2xl font-bold mb-4">Latest News from Haiti</h2>
+          <div className="space-y-4">
+            <div className="bg-white rounded-lg p-4 shadow">
+              <h3 className="font-bold text-lg">Haiti Reconstruction Progress</h3>
+              <p className="text-gray-600">Latest updates on infrastructure development and international aid efforts.</p>
+              <span className="text-sm text-gray-500">2 hours ago</span>
+            </div>
+            <div className="bg-white rounded-lg p-4 shadow">
+              <h3 className="font-bold text-lg">Cultural Festival Announced</h3>
+              <p className="text-gray-600">Annual Haitian cultural festival dates and locations revealed.</p>
+              <span className="text-sm text-gray-500">1 day ago</span>
+            </div>
+            <div className="bg-white rounded-lg p-4 shadow">
+              <h3 className="font-bold text-lg">Economic Development Initiatives</h3>
+              <p className="text-gray-600">New programs aimed at boosting local entrepreneurship.</p>
+              <span className="text-sm text-gray-500">3 days ago</span>
+            </div>
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+
+  // ========== RENDER: EVENTS ==========
+  
+  if (screen === "events") {
+    return (
+      <Shell title={`📅 Community Events`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
+        <div className="p-4">
+          <h2 className="text-2xl font-bold mb-4">Upcoming Events</h2>
+          <div className="space-y-4">
+            <div className="bg-white rounded-lg p-4 shadow">
+              <h3 className="font-bold text-lg">Haitian Independence Day Celebration</h3>
+              <p className="text-gray-600">Join us for a day of cultural celebration and community gathering.</p>
+              <p className="text-blue-600 font-semibold">January 1st • Port-au-Prince</p>
+            </div>
+            <div className="bg-white rounded-lg p-4 shadow">
+              <h3 className="font-bold text-lg">Community Health Fair</h3>
+              <p className="text-gray-600">Free health screenings and wellness workshops.</p>
+              <p className="text-blue-600 font-semibold">February 15th • Cap-Haïtien</p>
+            </div>
+            <div className="bg-white rounded-lg p-4 shadow">
+              <h3 className="font-bold text-lg">Youth Leadership Conference</h3>
+              <p className="text-gray-600">Empowering the next generation of Haitian leaders.</p>
+              <p className="text-blue-600 font-semibold">March 20th • Port-au-Prince</p>
+            </div>
+          </div>
+        </div>
       </Shell>
     );
   }
@@ -1954,6 +2140,10 @@ export default function HaitiSocialApp() {
           setMemorialFile={setMemorialFile}
           handleCreateMemorial={handleCreateMemorial}
           handleAddCondolence={handleAddCondolence}
+          isAdmin={isAdmin}
+          currentUser={currentUser}
+          onEditMemorial={handleEditMemorial}
+          onDeleteMemorial={handleDeleteMemorial}
         />
       </Shell>
     );

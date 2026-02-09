@@ -7,7 +7,9 @@ const router = Router();
 // Middleware to check admin role
 function requireAdmin(req, res, next) {
   const adminUsername = (process.env.ADMIN_USERNAME || "admin").trim().toLowerCase();
-  if (req.user.username.toLowerCase() !== adminUsername) {
+  const userUsername = req.user.username.toLowerCase();
+  console.log(`Admin check: adminUsername=${adminUsername}, userUsername=${userUsername}, match=${userUsername === adminUsername}`);
+  if (userUsername !== adminUsername) {
     return res.status(403).json({ error: "Admin access required" });
   }
   next();
@@ -46,7 +48,7 @@ router.delete("/users/:username", requireAuth, requireAdmin, async (req, res) =>
       return res.status(404).json({ error: "User not found" });
     }
     const userId = userResult.rows[0].id;
-    await query("DELETE FROM messages WHERE username = $1 OR sender = $1 OR recipient = $1", [username.toLowerCase()]);
+    await query("DELETE FROM messages WHERE sender = $1 OR recipient = $1", [username.toLowerCase()]);
     await query("DELETE FROM posts WHERE username = $1", [username.toLowerCase()]);
     await query("DELETE FROM profiles WHERE user_id = $1", [userId]);
     await query("DELETE FROM users WHERE id = $1", [userId]);

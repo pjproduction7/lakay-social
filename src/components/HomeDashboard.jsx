@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import SpinningLogo from './shared/SpinningLogo';
 import HomeButton from './shared/HomeButton';
 import BigButton from './shared/BigButton';
-import { Bell, Moon, Sun, MessageSquare, Users, Search, Star } from 'lucide-react';
+import { Bell, Moon, Sun, MessageSquare, Users, Newspaper, Calendar } from 'lucide-react';
 
 export default function HomeDashboard({
   darkMode,
@@ -69,8 +69,8 @@ export default function HomeDashboard({
         </div>
 
         <div className="grid grid-cols-4 gap-3 mb-4">
-          <HomeButton icon={<Search size={28} />} label="Search" onClick={() => setScreen('search')} color="bg-blue-600" />
-          <HomeButton icon={<Star size={28} />} label="Saved" onClick={() => setScreen('saved')} color="bg-purple-600" />
+          <HomeButton icon={<Newspaper size={28} />} label="Haiti News" onClick={() => setScreen('haitiNews')} color="bg-blue-600" />
+          <HomeButton icon={<Calendar size={28} />} label="Events" onClick={() => setScreen('events')} color="bg-purple-600" />
           <div className="relative">
             <HomeButton icon={<MessageSquare size={28} />} label="Private Messages" onClick={() => setScreen('privateMessages')} color="bg-teal-600" />
             {getTotalUnreadCount() > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">{getTotalUnreadCount()}</span>}
