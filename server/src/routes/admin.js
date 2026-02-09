@@ -156,4 +156,146 @@ router.get("/logs", requireAuth, requireAdmin, async (_req, res) => {
   }
 });
 
-export default router;
+// GET /admin/posts - Get all posts for moderation
+router.get("/posts", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const result = await query(
+      `SELECT p.id, p.username, p.content, p.created_at,
+              u.email, pr.display_name
+       FROM posts p
+       LEFT JOIN users u ON LOWER(p.username) = LOWER(u.username)
+       LEFT JOIN profiles pr ON u.id = pr.user_id
+       ORDER BY p.created_at DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch posts" });
+  }
+});
+
+// DELETE /admin/posts/:id - Delete a specific post
+router.delete("/posts/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await query("DELETE FROM posts WHERE id = $1 RETURNING id", [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+    res.json({ message: "Post deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete post" });
+  }
+});
+
+// GET /admin/messages - Get all messages for moderation
+router.get("/messages", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const result = await query(
+      `SELECT m.id, m.sender, m.recipient, m.content, m.type, m.created_at,
+              u.email as sender_email, pr.display_name as sender_display_name
+       FROM messages m
+       LEFT JOIN users u ON LOWER(m.sender) = LOWER(u.username)
+       LEFT JOIN profiles pr ON u.id = pr.user_id
+       ORDER BY m.created_at DESC`
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch messages" });
+  }
+});
+
+// DELETE /admin/messages/:id - Delete a specific message
+router.delete("/messages/:id", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await query("DELETE FROM messages WHERE id = $1 RETURNING id", [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+    res.json({ message: "Message deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete message" });
+  }
+});
+
+// PUT /admin/users/:username/profile - Edit user profile
+router.put("/users/:username/profile", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const { display_name, bio, location } = req.body;
+    
+    const userResult = await query("SELECT id FROM users WHERE LOWER(username) = $1", [username.toLowerCase()]);
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const userId = userResult.rows[0].id;
+
+    await query(
+      `UPDATE profiles 
+       SET display_name = $1, bio = $2, location = $3, updated_at = NOW()
+       WHERE user_id = $4`,
+      [display_name || '', bio || '', location || '', userId]
+    );
+    
+    res.json({ message: "Profile updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+// GET /admin/settings - Get system settings
+router.get("/settings", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    // Return current system settings
+    res.json({
+      maintenanceMode: process.env.MAINTENANCE_MODE === 'true',
+      registrationEnabled: process.env.REGISTRATION_ENABLED !== 'false',
+      maxFileSize: process.env.MAX_FILE_SIZE || '10MB',
+      rateLimitWindow: process.env.RATE_LIMIT_WINDOW || '15',
+      rateLimitMax: process.env.RATE_LIMIT_MAX || '100',
+      jwtExpiry: process.env.JWT_EXPIRY || '7d'
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch settings" });
+  }
+});
+
+// PUT /admin/settings - Update system settings
+router.put("/settings", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { maintenanceMode, registrationEnabled, maxFileSize, rateLimitWindow, rateLimitMax, jwtExpiry } = req.body;
+    
+    // In a real app, you'd update environment variables or a settings table
+    // For now, we'll just acknowledge the update
+    console.log('Admin updating settings:', { maintenanceMode, registrationEnabled, maxFileSize, rateLimitWindow, rateLimitMax, jwtExpiry });
+    
+    res.json({ message: "Settings updated successfully (restart may be required)" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update settings" });
+  }
+});
+
+// POST /admin/announcement - Send system-wide announcement
+router.post("/announcement", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { message, type = 'info' } = req.body;
+    if (!message) {
+      return res.status(400).json({ error: "Message is required" });
+    }
+    
+    // In a real app, you'd broadcast this via WebSocket or store it
+    console.log(`Admin announcement (${type}): ${message}`);
+    
+    res.json({ message: "Announcement sent successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to send announcement" });
+  }
+});

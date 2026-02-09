@@ -98,3 +98,62 @@ export async function adminChangePassword() {
   // Keep default behavior for now; admin password reset implementation may be added later
   throw new Error('Password reset is unavailable in this static version.');
 }
+
+export async function getAllPosts() {
+  return apiRequest("/admin/posts", {
+    method: "GET",
+    auth: true,
+  });
+}
+
+export async function deletePost(postId) {
+  return apiRequest(`/admin/posts/${encodeURIComponent(postId)}`, {
+    method: "DELETE",
+    auth: true,
+  });
+}
+
+export async function getAllMessages() {
+  return apiRequest("/admin/messages", {
+    method: "GET",
+    auth: true,
+  });
+}
+
+export async function deleteMessage(messageId) {
+  return apiRequest(`/admin/messages/${encodeURIComponent(messageId)}`, {
+    method: "DELETE",
+    auth: true,
+  });
+}
+
+export async function adminUpdateUserProfile(username, { displayName, bio, location }) {
+  return apiRequest(`/admin/users/${encodeURIComponent(username)}/profile`, {
+    method: "PUT",
+    body: { display_name: displayName, bio, location },
+    auth: true,
+  });
+}
+
+export async function getSystemSettings() {
+  return apiRequest("/admin/settings", {
+    method: "GET",
+    auth: true,
+  });
+}
+
+export async function updateSystemSettings(settings) {
+  return apiRequest("/admin/settings", {
+    method: "PUT",
+    body: settings,
+    auth: true,
+  });
+}
+
+export async function sendSystemAnnouncement({ message, type = 'info' }) {
+  return apiRequest("/admin/announcement", {
+    method: "POST",
+    body: { message, type },
+    auth: true,
+  });
+}

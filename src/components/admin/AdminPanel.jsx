@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Trash2, X, UserPlus, KeyRound } from 'lucide-react';
+import { Shield, Trash2, X, UserPlus, KeyRound, MessageSquare, FileText, Settings, Megaphone } from 'lucide-react';
 import { deleteUser } from '../../services/auth';
 
 export default function AdminPanel({ 
@@ -30,6 +30,13 @@ export default function AdminPanel({
   const [deleteTarget, setDeleteTarget] = useState('');
   const [passwordTarget, setPasswordTarget] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [allPosts, setAllPosts] = useState([]);
+  const [allMessages, setAllMessages] = useState([]);
+  const [systemSettings, setSystemSettings] = useState({});
+  const [announcementMessage, setAnnouncementMessage] = useState('');
+  const [announcementType, setAnnouncementType] = useState('info');
+  const [editProfileTarget, setEditProfileTarget] = useState('');
+  const [editProfileData, setEditProfileData] = useState({ displayName: '', bio: '', location: '' });
 
   const handleToggleBan = async (user) => {
     try {
@@ -143,6 +150,108 @@ export default function AdminPanel({
 
   const handleForcePasswordReset = () => {
     pushNotif('❌ Password reset is unavailable in this static version.');
+  };
+
+  const handleLoadPosts = async () => {
+    try {
+      const { getAllPosts } = await import('../../services/auth');
+      const posts = await getAllPosts();
+      setAllPosts(posts);
+      pushNotif(`✅ Loaded ${posts.length} posts`);
+    } catch (err) {
+      pushNotif(`❌ Failed to load posts: ${err.message}`);
+    }
+  };
+
+  const handleDeletePost = async (postId) => {
+    if (!window.confirm('Delete this post? This cannot be undone.')) return;
+    try {
+      const { deletePost } = await import('../../services/auth');
+      await deletePost(postId);
+      setAllPosts(prev => prev.filter(p => p.id !== postId));
+      pushNotif('✅ Post deleted');
+    } catch (err) {
+      pushNotif(`❌ Failed to delete post: ${err.message}`);
+    }
+  };
+
+  const handleLoadMessages = async () => {
+    try {
+      const { getAllMessages } = await import('../../services/auth');
+      const messages = await getAllMessages();
+      setAllMessages(messages);
+      pushNotif(`✅ Loaded ${messages.length} messages`);
+    } catch (err) {
+      pushNotif(`❌ Failed to load messages: ${err.message}`);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    if (!window.confirm('Delete this message? This cannot be undone.')) return;
+    try {
+      const { deleteMessage } = await import('../../services/auth');
+      await deleteMessage(messageId);
+      setAllMessages(prev => prev.filter(m => m.id !== messageId));
+      pushNotif('✅ Message deleted');
+    } catch (err) {
+      pushNotif(`❌ Failed to delete message: ${err.message}`);
+    }
+  };
+
+  const handleLoadSettings = async () => {
+    try {
+      const { getSystemSettings } = await import('../../services/auth');
+      const settings = await getSystemSettings();
+      setSystemSettings(settings);
+      pushNotif('✅ Settings loaded');
+    } catch (err) {
+      pushNotif(`❌ Failed to load settings: ${err.message}`);
+    }
+  };
+
+  const handleUpdateSettings = async () => {
+    try {
+      const { updateSystemSettings } = await import('../../services/auth');
+      await updateSystemSettings(systemSettings);
+      pushNotif('✅ Settings updated');
+    } catch (err) {
+      pushNotif(`❌ Failed to update settings: ${err.message}`);
+    }
+  };
+
+  const handleSendAnnouncement = async () => {
+    if (!announcementMessage.trim()) {
+      pushNotif('⚠️ Please enter an announcement message');
+      return;
+    }
+    try {
+      const { sendSystemAnnouncement } = await import('../../services/auth');
+      await sendSystemAnnouncement({ message: announcementMessage, type: announcementType });
+      setAnnouncementMessage('');
+      pushNotif('✅ Announcement sent');
+    } catch (err) {
+      pushNotif(`❌ Failed to send announcement: ${err.message}`);
+    }
+  };
+
+  const handleEditUserProfile = async () => {
+    if (!editProfileTarget) {
+      pushNotif('⚠️ Select a user to edit');
+      return;
+    }
+    try {
+      const { adminUpdateUserProfile } = await import('../../services/auth');
+      await adminUpdateUserProfile(editProfileTarget, {
+        displayName: editProfileData.displayName,
+        bio: editProfileData.bio,
+        location: editProfileData.location
+      });
+      setEditProfileTarget('');
+      setEditProfileData({ displayName: '', bio: '', location: '' });
+      pushNotif('✅ Profile updated');
+    } catch (err) {
+      pushNotif(`❌ Failed to update profile: ${err.message}`);
+    }
   };
 
   const manageableUsers = allUsers.filter(u => u !== currentUser);
@@ -368,8 +477,221 @@ export default function AdminPanel({
             </div>
           </div>
 
-          {/* Logs */}
-          <div className="bg-gray-700 rounded-xl p-6 mb-6">
+          {/* Content Moderation */}
+          <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">
+            <h3 className="text-white font-bold text-xl mb-4 flex items-center gap-2">
+              <FileText size={24} /> Content Moderation
+            </h3>
+            
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <button
+                  onClick={handleLoadPosts}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg mb-2"
+                >
+                  Load All Posts ({allPosts.length})
+                </button>
+                <div className="max-h-64 overflow-y-auto space-y-2">
+                  {allPosts.map(post => (
+                    <div key={post.id} className="bg-gray-800 p-3 rounded-lg">
+                      <div className="text-white font-semibold">{post.username}</div>
+                      <div className="text-white/80 text-sm mb-2">{post.content}</div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-white/60 text-xs">{new Date(post.created_at).toLocaleString()}</span>
+                        <button
+                          onClick={() => handleDeletePost(post.id)}
+                          className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              <div>
+                <button
+                  onClick={handleLoadMessages}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg mb-2"
+                >
+                  Load All Messages ({allMessages.length})
+                </button>
+                <div className="max-h-64 overflow-y-auto space-y-2">
+                  {allMessages.map(message => (
+                    <div key={message.id} className="bg-gray-800 p-3 rounded-lg">
+                      <div className="text-white font-semibold">{message.sender} {message.recipient && `→ ${message.recipient}`}</div>
+                      <div className="text-white/80 text-sm mb-2">{message.content}</div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-white/60 text-xs">{new Date(message.created_at).toLocaleString()}</span>
+                        <button
+                          onClick={() => handleDeleteMessage(message.id)}
+                          className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* System Settings */}
+          <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">
+            <h3 className="text-white font-bold text-xl mb-4 flex items-center gap-2">
+              <Settings size={24} /> System Settings
+            </h3>
+            
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <button
+                onClick={handleLoadSettings}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-lg"
+              >
+                Load Current Settings
+              </button>
+              
+              <button
+                onClick={handleUpdateSettings}
+                className="bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 rounded-lg"
+              >
+                Update Settings
+              </button>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-white font-semibold mb-2">Maintenance Mode</label>
+                <input
+                  type="checkbox"
+                  checked={systemSettings.maintenanceMode || false}
+                  onChange={(e) => setSystemSettings(prev => ({ ...prev, maintenanceMode: e.target.checked }))}
+                  className="w-6 h-6"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-white font-semibold mb-2">Registration Enabled</label>
+                <input
+                  type="checkbox"
+                  checked={systemSettings.registrationEnabled !== false}
+                  onChange={(e) => setSystemSettings(prev => ({ ...prev, registrationEnabled: e.target.checked }))}
+                  className="w-6 h-6"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-white font-semibold mb-2">Max File Size</label>
+                <input
+                  type="text"
+                  value={systemSettings.maxFileSize || ''}
+                  onChange={(e) => setSystemSettings(prev => ({ ...prev, maxFileSize: e.target.value }))}
+                  className="w-full p-2 rounded bg-gray-800 border border-white/20 text-white"
+                  placeholder="10MB"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-white font-semibold mb-2">Rate Limit (requests/15min)</label>
+                <input
+                  type="number"
+                  value={systemSettings.rateLimitMax || ''}
+                  onChange={(e) => setSystemSettings(prev => ({ ...prev, rateLimitMax: parseInt(e.target.value) }))}
+                  className="w-full p-2 rounded bg-gray-800 border border-white/20 text-white"
+                  placeholder="100"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* System Announcements */}
+          <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">
+            <h3 className="text-white font-bold text-xl mb-4 flex items-center gap-2">
+              <Megaphone size={24} /> System Announcements
+            </h3>
+            
+            <div className="mb-4">
+              <textarea
+                value={announcementMessage}
+                onChange={(e) => setAnnouncementMessage(e.target.value)}
+                className="w-full p-3 rounded bg-gray-800 border border-white/20 text-white"
+                rows="3"
+                placeholder="Enter announcement message..."
+              />
+              
+              <div className="flex gap-4 mt-3">
+                <select
+                  value={announcementType}
+                  onChange={(e) => setAnnouncementType(e.target.value)}
+                  className="p-2 rounded bg-gray-800 border border-white/20 text-white"
+                >
+                  <option value="info">ℹ️ Info</option>
+                  <option value="warning">⚠️ Warning</option>
+                  <option value="success">✅ Success</option>
+                  <option value="error">❌ Error</option>
+                </select>
+                
+                <button
+                  onClick={handleSendAnnouncement}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white font-bold px-6 py-2 rounded-lg"
+                >
+                  Send Announcement
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Profile Editor */}
+          <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">
+            <h3 className="text-white font-bold text-xl mb-4">👤 Edit User Profiles</h3>
+            
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <select
+                value={editProfileTarget}
+                onChange={(e) => setEditProfileTarget(e.target.value)}
+                className="p-2 rounded bg-gray-800 border border-white/20 text-white"
+              >
+                <option value="">Select user</option>
+                {manageableUsers.map(user => (
+                  <option key={user} value={user}>{user}</option>
+                ))}
+              </select>
+              
+              <button
+                onClick={handleEditUserProfile}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-lg"
+              >
+                Update Profile
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={editProfileData.displayName}
+                onChange={(e) => setEditProfileData(prev => ({ ...prev, displayName: e.target.value }))}
+                className="w-full p-2 rounded bg-gray-800 border border-white/20 text-white"
+                placeholder="Display Name"
+              />
+              
+              <textarea
+                value={editProfileData.bio}
+                onChange={(e) => setEditProfileData(prev => ({ ...prev, bio: e.target.value }))}
+                className="w-full p-2 rounded bg-gray-800 border border-white/20 text-white"
+                rows="2"
+                placeholder="Bio"
+              />
+              
+              <input
+                type="text"
+                value={editProfileData.location}
+                onChange={(e) => setEditProfileData(prev => ({ ...prev, location: e.target.value }))}
+                className="w-full p-2 rounded bg-gray-800 border border-white/20 text-white"
+                placeholder="Location"
+              />
+            </div>
+          </div>
             <h4 className="text-xl font-bold text-white mb-4">📋 Recent Activity</h4>
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {adminLogs.recentUsers?.length > 0 && (

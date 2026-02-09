@@ -20,12 +20,15 @@ test('clicking Post calls handleCreatePost', async () => {
       posts={[]}
       openProfile={() => {}}
       currentUser={'alice'}
+      isAdmin={false}
       toggleSave={() => {}}
       handleToggleLike={() => {}}
       handleReaction={() => {}}
       commentRefs={{ current: {} }}
       commentTexts={{}}
       handleAddComment={() => {}}
+      onEditPost={() => {}}
+      onDeletePost={() => {}}
     />
   );
 
@@ -54,12 +57,15 @@ test('pressing Enter in comment input calls handleAddComment', async () => {
       posts={posts}
       openProfile={() => {}}
       currentUser={'alice'}
+      isAdmin={false}
       toggleSave={() => {}}
       handleToggleLike={() => {}}
       handleReaction={() => {}}
       commentRefs={{ current: {} }}
       commentTexts={{}}
       handleAddComment={handleAddComment}
+      onEditPost={() => {}}
+      onDeletePost={() => {}}
     />
   );
 

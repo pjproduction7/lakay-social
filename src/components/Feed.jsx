@@ -1,5 +1,5 @@
 import React from 'react';
-import { Camera, X, Send, Bookmark, MessageSquare } from 'lucide-react';
+import { Camera, X, Send, Bookmark, MessageSquare, Edit, Trash2 } from 'lucide-react';
 import PropTypes from 'prop-types';
 
 export default function Feed({
@@ -13,12 +13,15 @@ export default function Feed({
   posts,
   openProfile,
   currentUser,
+  isAdmin,
   toggleSave,
   handleToggleLike,
   handleReaction,
   commentRefs,
   commentTexts,
   handleAddComment,
+  onEditPost,
+  onDeletePost,
 }) {
   return (
     <>
@@ -102,9 +105,34 @@ export default function Feed({
                     {new Date(post.timestamp).toLocaleString()}
                   </div>
                 </div>
-                <button onClick={() => toggleSave(`post:${post.id}`)} className="text-white hover:scale-110 transition">
-                  <Bookmark size={24} />
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => toggleSave(`post:${post.id}`)} className="text-white hover:scale-110 transition">
+                    <Bookmark size={24} />
+                  </button>
+                  {(currentUser === post.user || isAdmin) && (
+                    <>
+                      <button
+                        onClick={() => {
+                          const newContent = prompt("Edit post content:", post.content);
+                          if (newContent && newContent.trim() !== post.content) {
+                            onEditPost(post.id, newContent.trim());
+                          }
+                        }}
+                        className="text-white hover:scale-110 transition"
+                        title="Edit post"
+                      >
+                        <Edit size={20} />
+                      </button>
+                      <button
+                        onClick={() => onDeletePost(post.id)}
+                        className="text-red-300 hover:text-red-100 hover:scale-110 transition"
+                        title="Delete post"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Post Content */}
@@ -209,10 +237,13 @@ Feed.propTypes = {
   posts: PropTypes.array.isRequired,
   openProfile: PropTypes.func.isRequired,
   currentUser: PropTypes.string,
+  isAdmin: PropTypes.bool,
   toggleSave: PropTypes.func.isRequired,
   handleToggleLike: PropTypes.func.isRequired,
   handleReaction: PropTypes.func.isRequired,
   commentRefs: PropTypes.object.isRequired,
   commentTexts: PropTypes.object.isRequired,
   handleAddComment: PropTypes.func.isRequired,
+  onEditPost: PropTypes.func.isRequired,
+  onDeletePost: PropTypes.func.isRequired,
 };

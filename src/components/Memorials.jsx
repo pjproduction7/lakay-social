@@ -1,4 +1,5 @@
 import React from 'react';
+import { Edit, Trash2 } from 'lucide-react';
 import PropTypes from 'prop-types';
 
 export default function Memorials({
@@ -11,6 +12,10 @@ export default function Memorials({
   setMemorialFile,
   handleCreateMemorial,
   handleAddCondolence,
+  isAdmin,
+  currentUser,
+  onEditMemorial,
+  onDeleteMemorial,
 }) {
   return (
     <div>
@@ -61,6 +66,33 @@ export default function Memorials({
               <h3 className="text-2xl font-bold text-gray-900">{memorial.name}</h3>
               <p className="text-lg text-gray-600">{memorial.years}</p>
               <p className="text-sm text-gray-500">Posted by {memorial.author}</p>
+            </div>
+            <div className="flex gap-2">
+              {(currentUser === memorial.author) && (
+                <button
+                  onClick={() => {
+                    const newName = prompt("Edit person's name:", memorial.name);
+                    const newYears = prompt("Edit years (e.g., 1950-2023):", memorial.years);
+                    const newTribute = prompt("Edit tribute:", memorial.tribute);
+                    if (newName && newTribute && newName.trim() !== memorial.name || newYears !== memorial.years || newTribute.trim() !== memorial.tribute) {
+                      onEditMemorial(memorial.id, newName.trim(), newYears?.trim() || "", newTribute.trim());
+                    }
+                  }}
+                  className="text-purple-600 hover:text-purple-800 hover:scale-110 transition p-2"
+                  title="Edit memorial"
+                >
+                  <Edit size={20} />
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  onClick={() => onDeleteMemorial(memorial.id)}
+                  className="text-red-600 hover:text-red-800 hover:scale-110 transition p-2"
+                  title="Delete memorial"
+                >
+                  <Trash2 size={20} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -119,4 +151,8 @@ Memorials.propTypes = {
   setMemorialFile: PropTypes.func,
   handleCreateMemorial: PropTypes.func.isRequired,
   handleAddCondolence: PropTypes.func.isRequired,
+  isAdmin: PropTypes.bool,
+  currentUser: PropTypes.string,
+  onEditMemorial: PropTypes.func.isRequired,
+  onDeleteMemorial: PropTypes.func.isRequired,
 };

@@ -252,5 +252,81 @@ router.post("/:postId/comments", requireAuth, async (req, res) => {
   }
 });
 
+// PUT /posts/:postId - Edit post (owner or admin only)
+router.put("/:postId", requireAuth, async (req, res) => {
+  const postId = Number(req.params.postId);
+  if (!Number.isInteger(postId)) {
+    return res.status(400).json({ error: "Invalid post id" });
+  }
+
+  const parse = createPostSchema.safeParse(req.body);
+  if (!parse.success) {
+    return res.status(400).json({ error: parse.error.flatten().fieldErrors });
+  }
+
+  const { content, imageUrl = null } = parse.data;
+
+  try {
+    // Check ownership or admin
+    const postResult = await query(
+      `SELECT user_id, username FROM posts WHERE id = $1`,
+      [postId]
+    );
+    if (postResult.rowCount === 0) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+    const post = postResult.rows[0];
+    const isOwner = req.user.id === post.user_id;
+    const isAdmin = req.user.username.toLowerCase() === (process.env.ADMIN_USERNAME || "admin").toLowerCase();
+    
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: "You can only edit your own posts" });
+    }
+
+    await query(
+      `UPDATE posts SET content = $1, image_url = $2 WHERE id = $3`,
+      [content, imageUrl, postId]
+    );
+
+    const [updatedPost] = await fetchPosts({ ids: [postId] });
+    res.json(updatedPost);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update post" });
+  }
+});
+
+// DELETE /posts/:postId - Delete post (owner or admin only)
+router.delete("/:postId", requireAuth, async (req, res) => {
+  const postId = Number(req.params.postId);
+  if (!Number.isInteger(postId)) {
+    return res.status(400).json({ error: "Invalid post id" });
+  }
+
+  try {
+    // Check ownership or admin
+    const postResult = await query(
+      `SELECT user_id, username FROM posts WHERE id = $1`,
+      [postId]
+    );
+    if (postResult.rowCount === 0) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+    const post = postResult.rows[0];
+    const isOwner = req.user.id === post.user_id;
+    const isAdmin = req.user.username.toLowerCase() === (process.env.ADMIN_USERNAME || "admin").toLowerCase();
+    
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: "You can only delete your own posts" });
+    }
+
+    await query(`DELETE FROM posts WHERE id = $1`, [postId]);
+    res.json({ message: "Post deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete post" });
+  }
+});
+
 export default router;
 

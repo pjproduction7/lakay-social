@@ -36,3 +36,18 @@ export async function addComment({ postId, content }) {
     auth: true,
   });
 }
+
+export async function updatePost({ postId, content, image }) {
+  return apiRequest(`/posts/${postId}`, {
+    method: "PUT",
+    body: { content, imageUrl: image },
+    auth: true,
+  });
+}
+
+export async function deletePost({ postId }) {
+  return apiRequest(`/posts/${postId}`, {
+    method: "DELETE",
+    auth: true,
+  });
+}
