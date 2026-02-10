@@ -141,6 +141,63 @@ export default function HaitiSocialApp() {
   const [deletePhotoId, setDeletePhotoId] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // ========== NEWS AND EVENTS STATE ==========
+  const [newsArticles, setNewsArticles] = useState([
+    {
+      id: 1,
+      title: "Haiti Reconstruction Progress",
+      content: "Latest updates on infrastructure development and international aid efforts.",
+      timestamp: "2 hours ago"
+    },
+    {
+      id: 2,
+      title: "Cultural Festival Announced",
+      content: "Annual Haitian cultural festival dates and locations revealed.",
+      timestamp: "1 day ago"
+    },
+    {
+      id: 3,
+      title: "Economic Development Initiatives",
+      content: "New programs aimed at boosting local entrepreneurship.",
+      timestamp: "3 days ago"
+    }
+  ]);
+  const [events, setEvents] = useState([
+    {
+      id: 1,
+      title: "Haitian Independence Day Celebration",
+      description: "Join us for a day of cultural celebration and community gathering.",
+      date: "January 1st",
+      location: "Port-au-Prince"
+    },
+    {
+      id: 2,
+      title: "Community Health Fair",
+      description: "Free health screenings and wellness workshops.",
+      date: "February 15th",
+      location: "Cap-Haïtien"
+    },
+    {
+      id: 3,
+      title: "Youth Leadership Conference",
+      description: "Empowering the next generation of Haitian leaders.",
+      date: "March 20th",
+      location: "Port-au-Prince"
+    }
+  ]);
+
+  // News form state
+  const [newNewsTitle, setNewNewsTitle] = useState("");
+  const [newNewsContent, setNewNewsContent] = useState("");
+  const [showNewsForm, setShowNewsForm] = useState(false);
+
+  // Events form state
+  const [newEventTitle, setNewEventTitle] = useState("");
+  const [newEventDescription, setNewEventDescription] = useState("");
+  const [newEventDate, setNewEventDate] = useState("");
+  const [newEventLocation, setNewEventLocation] = useState("");
+  const [showEventForm, setShowEventForm] = useState(false);
+
   const openDeleteModal = (photoId) => {
     setDeletePhotoId(photoId);
     setDeleteModalOpen(true);
@@ -150,6 +207,50 @@ export default function HaitiSocialApp() {
     setDeletePhotoId(null);
     setDeleteModalOpen(false);
     setDeleteLoading(false);
+  };
+
+  // ========== NEWS AND EVENTS HANDLERS ==========
+  const handleAddNews = () => {
+    if (!newNewsTitle.trim() || !newNewsContent.trim()) {
+      pushNotif("❌ Please fill in both title and content");
+      return;
+    }
+
+    const newArticle = {
+      id: Date.now(),
+      title: newNewsTitle.trim(),
+      content: newNewsContent.trim(),
+      timestamp: "Just now"
+    };
+
+    setNewsArticles(prev => [newArticle, ...prev]);
+    setNewNewsTitle("");
+    setNewNewsContent("");
+    setShowNewsForm(false);
+    pushNotif("✅ News article added successfully!");
+  };
+
+  const handleAddEvent = () => {
+    if (!newEventTitle.trim() || !newEventDescription.trim() || !newEventDate.trim() || !newEventLocation.trim()) {
+      pushNotif("❌ Please fill in all event details");
+      return;
+    }
+
+    const newEvent = {
+      id: Date.now(),
+      title: newEventTitle.trim(),
+      description: newEventDescription.trim(),
+      date: newEventDate.trim(),
+      location: newEventLocation.trim()
+    };
+
+    setEvents(prev => [newEvent, ...prev]);
+    setNewEventTitle("");
+    setNewEventDescription("");
+    setNewEventDate("");
+    setNewEventLocation("");
+    setShowEventForm(false);
+    pushNotif("✅ Event added successfully!");
   };
 
   // Pending deletion state (for optimistic undo)
@@ -1960,23 +2061,52 @@ export default function HaitiSocialApp() {
     return (
       <Shell title={`📰 Haiti News`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
         <div className="p-4">
-          <h2 className="text-2xl font-bold mb-4">Latest News from Haiti</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Latest News from Haiti</h2>
+            <button
+              onClick={() => setShowNewsForm(!showNewsForm)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold"
+            >
+              {showNewsForm ? "Cancel" : "+ Add News"}
+            </button>
+          </div>
+
+          {showNewsForm && (
+            <div className="bg-white rounded-lg p-4 shadow mb-4">
+              <h3 className="font-bold text-lg mb-3">Add New Article</h3>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="News Title"
+                  value={newNewsTitle}
+                  onChange={(e) => setNewNewsTitle(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <textarea
+                  placeholder="News Content"
+                  value={newNewsContent}
+                  onChange={(e) => setNewNewsContent(e.target.value)}
+                  rows={4}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  onClick={handleAddNews}
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-semibold"
+                >
+                  Publish Article
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4">
-            <div className="bg-white rounded-lg p-4 shadow">
-              <h3 className="font-bold text-lg">Haiti Reconstruction Progress</h3>
-              <p className="text-gray-600">Latest updates on infrastructure development and international aid efforts.</p>
-              <span className="text-sm text-gray-500">2 hours ago</span>
-            </div>
-            <div className="bg-white rounded-lg p-4 shadow">
-              <h3 className="font-bold text-lg">Cultural Festival Announced</h3>
-              <p className="text-gray-600">Annual Haitian cultural festival dates and locations revealed.</p>
-              <span className="text-sm text-gray-500">1 day ago</span>
-            </div>
-            <div className="bg-white rounded-lg p-4 shadow">
-              <h3 className="font-bold text-lg">Economic Development Initiatives</h3>
-              <p className="text-gray-600">New programs aimed at boosting local entrepreneurship.</p>
-              <span className="text-sm text-gray-500">3 days ago</span>
-            </div>
+            {newsArticles.map(article => (
+              <div key={article.id} className="bg-white rounded-lg p-4 shadow">
+                <h3 className="font-bold text-lg">{article.title}</h3>
+                <p className="text-gray-600 mt-2">{article.content}</p>
+                <span className="text-sm text-gray-500 mt-2 block">{article.timestamp}</span>
+              </div>
+            ))}
           </div>
         </div>
       </Shell>
@@ -1989,23 +2119,66 @@ export default function HaitiSocialApp() {
     return (
       <Shell title={`📅 Community Events`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
         <div className="p-4">
-          <h2 className="text-2xl font-bold mb-4">Upcoming Events</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold">Upcoming Events</h2>
+            <button
+              onClick={() => setShowEventForm(!showEventForm)}
+              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-semibold"
+            >
+              {showEventForm ? "Cancel" : "+ Add Event"}
+            </button>
+          </div>
+
+          {showEventForm && (
+            <div className="bg-white rounded-lg p-4 shadow mb-4">
+              <h3 className="font-bold text-lg mb-3">Add New Event</h3>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Event Title"
+                  value={newEventTitle}
+                  onChange={(e) => setNewEventTitle(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <textarea
+                  placeholder="Event Description"
+                  value={newEventDescription}
+                  onChange={(e) => setNewEventDescription(e.target.value)}
+                  rows={3}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Event Date (e.g., January 1st)"
+                  value={newEventDate}
+                  onChange={(e) => setNewEventDate(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Event Location"
+                  value={newEventLocation}
+                  onChange={(e) => setNewEventLocation(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <button
+                  onClick={handleAddEvent}
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-semibold"
+                >
+                  Create Event
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="space-y-4">
-            <div className="bg-white rounded-lg p-4 shadow">
-              <h3 className="font-bold text-lg">Haitian Independence Day Celebration</h3>
-              <p className="text-gray-600">Join us for a day of cultural celebration and community gathering.</p>
-              <p className="text-blue-600 font-semibold">January 1st • Port-au-Prince</p>
-            </div>
-            <div className="bg-white rounded-lg p-4 shadow">
-              <h3 className="font-bold text-lg">Community Health Fair</h3>
-              <p className="text-gray-600">Free health screenings and wellness workshops.</p>
-              <p className="text-blue-600 font-semibold">February 15th • Cap-Haïtien</p>
-            </div>
-            <div className="bg-white rounded-lg p-4 shadow">
-              <h3 className="font-bold text-lg">Youth Leadership Conference</h3>
-              <p className="text-gray-600">Empowering the next generation of Haitian leaders.</p>
-              <p className="text-blue-600 font-semibold">March 20th • Port-au-Prince</p>
-            </div>
+            {events.map(event => (
+              <div key={event.id} className="bg-white rounded-lg p-4 shadow">
+                <h3 className="font-bold text-lg">{event.title}</h3>
+                <p className="text-gray-600 mt-2">{event.description}</p>
+                <p className="text-blue-600 font-semibold mt-2">{event.date} • {event.location}</p>
+              </div>
+            ))}
           </div>
         </div>
       </Shell>
