@@ -1,18 +1,30 @@
 import { Router } from "express";
 import { query } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { auditLog } from "../utils/logger.js";
 
 const router = Router();
 
 // Middleware to check admin role
 function requireAdmin(req, res, next) {
-  const adminUsername = (process.env.ADMIN_USERNAME || "admin").trim().toLowerCase();
-  const userUsername = req.user.username.toLowerCase();
-  console.log(`Admin check: adminUsername=${adminUsername}, userUsername=${userUsername}, match=${userUsername === adminUsername}`);
-  if (userUsername !== adminUsername) {
-    return res.status(403).json({ error: "Admin access required" });
-  }
-  next();
+  // First check if user has admin role
+  query("SELECT role FROM user_roles WHERE user_id = $1 AND role = 'admin'", [req.user.id])
+    .then(result => {
+      if (result.rowCount > 0) {
+        return next();
+      }
+      // Fallback to username check for backwards compatibility
+      const adminUsername = (process.env.ADMIN_USERNAME || "admin").trim().toLowerCase();
+      const userUsername = req.user.username.toLowerCase();
+      if (userUsername === adminUsername) {
+        return next();
+      }
+      return res.status(403).json({ error: "Admin access required" });
+    })
+    .catch(err => {
+      console.error(err);
+      res.status(500).json({ error: "Authorization check failed" });
+    });
 }
 
 // GET /admin/users - Get all users
@@ -52,10 +64,158 @@ router.delete("/users/:username", requireAuth, requireAdmin, async (req, res) =>
     await query("DELETE FROM posts WHERE username = $1", [username.toLowerCase()]);
     await query("DELETE FROM profiles WHERE user_id = $1", [userId]);
     await query("DELETE FROM users WHERE id = $1", [userId]);
+    auditLog('USER_DELETED', req.user.id, { targetUserId: userId, targetUsername: username });
     res.json({ message: "User deleted successfully" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to delete user" });
+  }
+});
+
+// POST /admin/users - Create a new user (admin only)
+router.post("/users", requireAuth, requireAdmin, async (req, res) => {
+  const { username, email, password } = req.body;
+  if (!username || !email || !password) {
+    return res.status(400).json({ error: "Username, email, and password are required" });
+  }
+
+  try {
+    // Check if user already exists
+    const existing = await query("SELECT id FROM users WHERE username = $1 OR email = $2", [username, email]);
+    if (existing.rowCount > 0) {
+      return res.status(409).json({ error: "Username or email already exists" });
+    }
+
+    // Hash password
+    const bcrypt = await import("bcryptjs");
+    const hash = await bcrypt.default.hash(password, 12);
+
+    // Create user
+    const insert = await query(
+      "INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, created_at",
+      [username, email, hash]
+    );
+
+    // Create profile
+    await query(
+      "INSERT INTO profiles (user_id, username, display_name, bio, location) VALUES ($1, $2, $2, '', '') ON CONFLICT (user_id) DO NOTHING",
+      [insert.rows[0].id, username]
+    );
+
+    auditLog('USER_CREATED', req.user.id, { targetUserId: insert.rows[0].id, targetUsername: username });
+    res.status(201).json({ user: insert.rows[0], message: "User created successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to create user" });
+  }
+});
+
+// PUT /admin/users/:username/password - Reset user password
+router.put("/users/:username/password", requireAuth, requireAdmin, async (req, res) => {
+  const { username } = req.params;
+  const { newPassword } = req.body;
+
+  if (!newPassword || newPassword.length < 8) {
+    return res.status(400).json({ error: "Password must be at least 8 characters long" });
+  }
+
+  try {
+    const userResult = await query("SELECT id FROM users WHERE LOWER(username) = $1", [username.toLowerCase()]);
+    if (userResult.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const bcrypt = await import("bcryptjs");
+    const hash = await bcrypt.default.hash(newPassword, 12);
+
+    await query("UPDATE users SET password_hash = $1 WHERE LOWER(username) = $2", [hash, username.toLowerCase()]);
+
+    auditLog('PASSWORD_RESET', req.user.id, { targetUsername: username });
+    res.json({ message: "Password reset successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to reset password" });
+  }
+});
+
+// DELETE /admin/messages/:id - Delete a message (public or private)
+router.delete("/messages/:id", requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const messageResult = await query("SELECT id, sender, content FROM messages WHERE id = $1", [id]);
+    if (messageResult.rowCount === 0) {
+      return res.status(404).json({ error: "Message not found" });
+    }
+
+    await query("DELETE FROM messages WHERE id = $1", [id]);
+
+    auditLog('MESSAGE_DELETED', req.user.id, { messageId: id, sender: messageResult.rows[0].sender });
+    res.json({ message: "Message deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete message" });
+  }
+});
+
+// GET /admin/messages - Get all messages (for moderation)
+router.get("/messages", requireAuth, requireAdmin, async (req, res) => {
+  const { limit = 100, offset = 0 } = req.query;
+
+  try {
+    const result = await query(
+      `SELECT id, sender, recipient, content, type, created_at
+       FROM messages
+       ORDER BY created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [parseInt(limit), parseInt(offset)]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch messages" });
+  }
+});
+
+// DELETE /admin/posts/:id - Delete a post
+router.delete("/posts/:id", requireAuth, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const postResult = await query("SELECT id, username, content FROM posts WHERE id = $1", [id]);
+    if (postResult.rowCount === 0) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+
+    await query("DELETE FROM posts WHERE id = $1", [id]);
+
+    auditLog('POST_DELETED', req.user.id, { postId: id, author: postResult.rows[0].username });
+    res.json({ message: "Post deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete post" });
+  }
+});
+
+// GET /admin/posts - Get all posts (for moderation)
+router.get("/posts", requireAuth, requireAdmin, async (req, res) => {
+  const { limit = 50, offset = 0 } = req.query;
+
+  try {
+    const result = await query(
+      `SELECT p.id, p.username, p.content, p.image_url, p.created_at,
+              u.email, pr.display_name, pr.bio
+       FROM posts p
+       LEFT JOIN users u ON p.username = u.username
+       LEFT JOIN profiles pr ON u.id = pr.user_id
+       ORDER BY p.created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [parseInt(limit), parseInt(offset)]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch posts" });
   }
 });
 

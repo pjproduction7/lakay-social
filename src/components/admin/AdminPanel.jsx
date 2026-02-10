@@ -148,8 +148,29 @@ export default function AdminPanel({
     }
   };
 
-  const handleForcePasswordReset = () => {
-    pushNotif('❌ Password reset is unavailable in this static version.');
+  const handleForcePasswordReset = async () => {
+    const target = passwordTarget.trim();
+    const password = newPassword.trim();
+
+    if (!target) {
+      pushNotif('⚠️ Select a user');
+      return;
+    }
+
+    if (!password || password.length < 8) {
+      pushNotif('⚠️ Password must be at least 8 characters');
+      return;
+    }
+
+    try {
+      const { adminResetPassword } = await import('../../services/auth');
+      await adminResetPassword(target, password);
+      setPasswordTarget('');
+      setNewPassword('');
+      pushNotif(`✅ Password reset for ${target}`);
+    } catch (err) {
+      pushNotif(`❌ Failed to reset password: ${err.message}`);
+    }
   };
 
   const handleLoadPosts = async () => {
@@ -313,11 +334,11 @@ export default function AdminPanel({
             <p className="text-white/60 text-sm mt-2">⚠️ This will permanently delete all chat messages</p>
           </div>
 
-          {/* Account Utilities - Temporarily disabled */}
-          {/* <div className="grid lg:grid-cols-3 gap-4 mb-6">
+          {/* Account Utilities */}
+          <div className="grid lg:grid-cols-3 gap-4 mb-6">
             <div className="bg-white/10 backdrop-blur rounded-xl p-4">
               <div className="flex items-center gap-2 text-white font-bold text-lg mb-3">
-                <UserPlus size={20} /> Quick Create User
+                <UserPlus size={20} /> Create User
               </div>
               <input
                 value={newUserForm.username}
@@ -329,15 +350,15 @@ export default function AdminPanel({
                 value={newUserForm.email}
                 onChange={(e) => setNewUserForm(prev => ({ ...prev, email: e.target.value }))}
                 className="w-full mb-2 p-2 rounded-lg bg-gray-900/50 border border-white/10 text-white"
-                placeholder="Email (optional)"
+                placeholder="Email"
                 type="email"
               />
               <input
                 value={newUserForm.password}
                 onChange={(e) => setNewUserForm(prev => ({ ...prev, password: e.target.value }))}
                 className="w-full mb-3 p-2 rounded-lg bg-gray-900/50 border border-white/10 text-white"
-                placeholder="Temporary Password"
-                type="text"
+                placeholder="Password"
+                type="password"
               />
               <button
                 onClick={handleCreateUser}
@@ -349,7 +370,7 @@ export default function AdminPanel({
 
             <div className="bg-white/10 backdrop-blur rounded-xl p-4">
               <div className="flex items-center gap-2 text-white font-bold text-lg mb-3">
-                <Trash2 size={20} /> Remove User
+                <Trash2 size={20} /> Delete User
               </div>
               <select
                 value={deleteTarget}
@@ -371,7 +392,7 @@ export default function AdminPanel({
 
             <div className="bg-white/10 backdrop-blur rounded-xl p-4">
               <div className="flex items-center gap-2 text-white font-bold text-lg mb-3">
-                <KeyRound size={20} /> Force Password Reset
+                <KeyRound size={20} /> Reset Password
               </div>
               <select
                 value={passwordTarget}
@@ -388,16 +409,16 @@ export default function AdminPanel({
                 onChange={(e) => setNewPassword(e.target.value)}
                 className="w-full mb-3 p-2 rounded-lg bg-gray-900/50 border border-white/10 text-white"
                 placeholder="New password"
-                type="text"
+                type="password"
               />
               <button
                 onClick={handleForcePasswordReset}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg"
               >
-                Update Password
+                Reset Password
               </button>
             </div>
-          </div> */}
+          </div>
 
           {/* User Management */}
           <div className="bg-white/10 backdrop-blur rounded-xl p-4">
@@ -477,12 +498,12 @@ export default function AdminPanel({
             </div>
           </div>
 
-          {/* Content Moderation - Temporarily disabled */}
-          {/* <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">
+          {/* Content Moderation */}
+          <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">
             <h3 className="text-white font-bold text-xl mb-4 flex items-center gap-2">
               <FileText size={24} /> Content Moderation
             </h3>
-            
+
             <div className="grid md:grid-cols-2 gap-4 mb-4">
               <div>
                 <button
@@ -509,7 +530,7 @@ export default function AdminPanel({
                   ))}
                 </div>
               </div>
-              
+
               <div>
                 <button
                   onClick={handleLoadMessages}
@@ -536,7 +557,7 @@ export default function AdminPanel({
                 </div>
               </div>
             </div>
-          </div> */}
+          </div>
 
           {/* System Settings - Temporarily disabled */}
           {/* <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">

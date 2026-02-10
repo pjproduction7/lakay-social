@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send } from 'lucide-react';
+import { Send, Edit2, Trash2 } from 'lucide-react';
 import PropTypes from 'prop-types';
 
-export default function PrivateChat({ currentUser, otherUser, privateMessages, bannedWords, onSendMessage, isLoading }) {
+export default function PrivateChat({ currentUser, otherUser, privateMessages, bannedWords, onSendMessage, onEditMessage, onDeleteMessage, isLoading }) {
   const [messageText, setMessageText] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingText, setEditingText] = useState('');
   const messagesEndRef = useRef(null);
   const sendingRef = useRef(false);
 
@@ -18,38 +20,53 @@ export default function PrivateChat({ currentUser, otherUser, privateMessages, b
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversation]);
 
+  const handleEditMessage = async (messageId, newContent) => {
+    if (!onEditMessage) return;
+
+    try {
+      await onEditMessage(messageId, newContent);
+      setEditingMessageId(null);
+      setEditingText('');
+    } catch (err) {
+      alert(err?.message || '❌ Failed to edit message');
+    }
+  };
+
+  const startEditing = (message) => {
+    setEditingMessageId(message.id);
+    setEditingText(message.message);
+  };
+
+  const cancelEditing = () => {
+    setEditingMessageId(null);
+    setEditingText('');
+  };
+
   const handleSendMessage = async () => {
-    if (sendingRef.current) return;
+    if (!messageText.trim() || isSending || !onSendMessage) return;
 
-    const trimmedMessage = messageText.trim();
-    if (!trimmedMessage || !otherUser) {
-      return;
-    }
-
-    // Check for profanity
-    const containsProfanity = bannedWords?.some(word => 
-      trimmedMessage.toLowerCase().includes(word.toLowerCase())
-    );
-
-    if (containsProfanity) {
-      alert('🚫 Message contains inappropriate language');
-      return;
-    }
-
-    if (!onSendMessage) {
-      return;
-    }
-
-    sendingRef.current = true;
     setIsSending(true);
     try {
-      await onSendMessage(trimmedMessage);
+      await onSendMessage(messageText.trim());
       setMessageText('');
     } catch (err) {
       alert(err?.message || '❌ Failed to send message');
     } finally {
       setIsSending(false);
-      sendingRef.current = false;
+    }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    if (!onDeleteMessage) return;
+
+    if (!confirm('Are you sure you want to delete this message? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await onDeleteMessage(messageId);
+    } catch (err) {
+      alert(err?.message || '❌ Failed to delete message');
     }
   };
 
@@ -71,12 +88,71 @@ export default function PrivateChat({ currentUser, otherUser, privateMessages, b
         ) : (
           conversation.map((msg, index) => {
             const isMe = msg.from === currentUser;
+            const isEditing = editingMessageId === msg.id;
             return (
               <div key={`${msg.id}-${msg.createdAt}-${index}`} className={`mb-3 flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[70%] ${isMe ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-900'} rounded-2xl px-4 py-2 shadow`}>
-                  <p className="text-sm font-semibold mb-1">{msg.from}</p>
-                  <p className="text-sm">{msg.message}</p>
-                  <p className={`text-xs mt-1 ${isMe ? 'text-blue-200' : 'text-gray-500'}`}>{msg.time}</p>
+                <div className={`max-w-[70%] ${isMe ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-900'} rounded-2xl px-4 py-2 shadow relative group`}>
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={editingText}
+                        onChange={(e) => setEditingText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleEditMessage(msg.id, editingText.trim());
+                          } else if (e.key === 'Escape') {
+                            cancelEditing();
+                          }
+                        }}
+                        className="w-full bg-white/20 border border-white/30 rounded px-2 py-1 text-sm"
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEditMessage(msg.id, editingText.trim())}
+                          className="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={cancelEditing}
+                          className="text-xs bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold mb-1">{msg.from}</p>
+                      <p className="text-sm">{msg.message}</p>
+                      {msg.edited_at && (
+                        <p className={`text-xs mt-1 ${isMe ? 'text-blue-200' : 'text-gray-500'}`}>
+                          (edited)
+                        </p>
+                      )}
+                      <p className={`text-xs mt-1 ${isMe ? 'text-blue-200' : 'text-gray-500'}`}>{msg.time}</p>
+                      {isMe && !isEditing && (
+                        <div className="absolute -right-16 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => startEditing(msg)}
+                            className="text-gray-400 hover:text-white p-1 rounded"
+                            title="Edit message"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMessage(msg.id)}
+                            className="text-gray-400 hover:text-red-400 p-1 rounded"
+                            title="Delete message"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             );
@@ -113,5 +189,7 @@ PrivateChat.propTypes = {
   privateMessages: PropTypes.array.isRequired,
   bannedWords: PropTypes.array,
   onSendMessage: PropTypes.func.isRequired,
+  onEditMessage: PropTypes.func,
+  onDeleteMessage: PropTypes.func,
   isLoading: PropTypes.bool,
 };

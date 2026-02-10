@@ -2,13 +2,17 @@ import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
+import speakeasy from "speakeasy";
+import qrcode from "qrcode";
 import { query } from "../db.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 const { JWT_SECRET = "change-me" } = process.env;
 const loginSchema = z.object({
   username: z.string().min(3).max(32),
   password: z.string().min(8).max(128),
+  mfaToken: z.string().optional(),
 });
 const signupSchema = loginSchema.extend({
   email: z.string().email(),
@@ -55,10 +59,10 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ error: "Invalid credentials" });
   }
 
-  const { username, password } = parse.data;
+  const { username, password, mfaToken } = parse.data;
   try {
     const result = await query(
-      "SELECT id, username, email, password_hash FROM users WHERE username = $1",
+      "SELECT id, username, email, password_hash, mfa_secret, mfa_enabled FROM users WHERE username = $1",
       [username]
     );
     if (result.rowCount === 0) {
@@ -73,12 +77,86 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid password" });
     }
 
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: "7d" });
-    res.json({ token, user: { id: user.id, username: user.username, email: user.email } });
+    // Check MFA if enabled
+    if (user.mfa_enabled) {
+      if (!mfaToken) {
+        return res.status(401).json({ error: "MFA token required", requiresMfa: true });
+      }
+      const verified = speakeasy.totp.verify({ secret: user.mfa_secret, encoding: "base32", token: mfaToken });
+      if (!verified) {
+        return res.status(401).json({ error: "Invalid MFA token" });
+      }
+    }
+
+    const accessToken = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: "15m" });
+    const refreshToken = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: "7d" });
+    
+    // Set httpOnly cookies
+    res.cookie('accessToken', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 15 * 60 * 1000 });
+    res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 });
+    
+    res.json({ 
+      accessToken, 
+      refreshToken,
+      user: { id: user.id, username: user.username, email: user.email } 
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Login failed" });
   }
+});
+
+router.post("/refresh", async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return res.status(401).json({ error: "Refresh token required" });
+  }
+  try {
+    const decoded = jwt.verify(refreshToken, JWT_SECRET);
+    const accessToken = jwt.sign({ id: decoded.id, username: decoded.username }, JWT_SECRET, { expiresIn: "15m" });
+    res.json({ accessToken });
+  } catch (err) {
+    return res.status(401).json({ error: "Invalid refresh token" });
+  }
+});
+
+// MFA Setup
+router.post("/mfa/setup", requireAuth, async (req, res) => {
+  try {
+    const secret = speakeasy.generateSecret({ name: "Lakay Social", issuer: "Lakay" });
+    const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
+    // Store temp secret in session or return it (for demo, return and require enable)
+    res.json({ secret: secret.base32, qrCodeUrl });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "MFA setup failed" });
+  }
+});
+
+// Enable MFA
+router.post("/mfa/enable", requireAuth, async (req, res) => {
+  const { secret, token } = req.body;
+  if (!secret || !token) {
+    return res.status(400).json({ error: "Secret and token required" });
+  }
+  const verified = speakeasy.totp.verify({ secret, encoding: "base32", token });
+  if (!verified) {
+    return res.status(400).json({ error: "Invalid token" });
+  }
+  try {
+    await query("UPDATE users SET mfa_secret = $1, mfa_enabled = TRUE WHERE id = $2", [secret, req.user.id]);
+    res.json({ message: "MFA enabled" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to enable MFA" });
+  }
+});
+
+// Logout
+router.post("/logout", (req, res) => {
+  res.clearCookie('accessToken');
+  res.clearCookie('refreshToken');
+  res.json({ message: "Logged out" });
 });
 
 export default router;

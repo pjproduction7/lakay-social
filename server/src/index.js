@@ -5,6 +5,7 @@ import helmet from "helmet";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 import authRoutes from "./routes/auth.js";
 import profileRoutes from "./routes/profiles.js";
 import messageRoutes from "./routes/messages.js";
@@ -26,7 +27,13 @@ const ADMIN_USERNAME = rawAdminUsername.trim().toLowerCase();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
 
 // Configure Helmet: disable CSP in development so DevTools and websocket probes work freely
-const helmetOptions = process.env.NODE_ENV === 'production' ? {} : { contentSecurityPolicy: false };
+const helmetOptions = process.env.NODE_ENV === 'production' ? {
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+} : { contentSecurityPolicy: false };
 app.use(helmet(helmetOptions));
 const corsOptions = process.env.NODE_ENV === 'production' ? {
   origin: [
@@ -76,6 +83,7 @@ app.use((req, res, next) => {
 // Increase JSON/urlencoded body size limits to allow larger payloads (images/base64 etc.)
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ limit: '1mb', extended: true }));
+app.use(cookieParser());
 console.log('? Body parser limits set: json=1mb, urlencoded=1mb');
 
 // Serve uploads with CORS headers

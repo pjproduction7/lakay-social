@@ -43,7 +43,7 @@ import {
   getUser,
   updateUserProfile
 } from '../services/auth';
-import { fetchAllPrivateMessages, sendPrivateMessage as sendPrivateMessageRequest } from '../services/messages';
+import { fetchAllPrivateMessages, sendPrivateMessage as sendPrivateMessageRequest, editPrivateMessage, deletePrivateMessage } from '../services/messages';
 import { setLanguage } from '../services/i18n';
 import {
   uploadProfilePhotos,
@@ -676,6 +676,50 @@ export default function HaitiSocialApp() {
       }
     },
     [currentUser, mapRemotePrivateMessage, pushNotif]
+  );
+
+  const handleDeletePrivateMessage = useCallback(
+    async (messageId) => {
+      if (!currentUser) {
+        pushNotif("⚠️ Please log in to delete messages");
+        return;
+      }
+
+      try {
+        await deletePrivateMessage(messageId);
+        setPrivateMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+        pushNotif("🗑️ Message deleted");
+      } catch (err) {
+        console.error(err);
+        const message = err?.message || "Failed to delete message";
+        pushNotif(`❌ ${message}`);
+        throw err;
+      }
+    },
+    [currentUser, pushNotif]
+  );
+
+  const handleEditPrivateMessage = useCallback(
+    async (messageId, content) => {
+      if (!currentUser) {
+        pushNotif("⚠️ Please log in to edit messages");
+        return;
+      }
+
+      try {
+        await editPrivateMessage(messageId, content);
+        setPrivateMessages((prev) => prev.map((msg) => 
+          msg.id === messageId ? { ...msg, content } : msg
+        ));
+        pushNotif("✏️ Message edited");
+      } catch (err) {
+        console.error(err);
+        const message = err?.message || "Failed to edit message";
+        pushNotif(`❌ ${message}`);
+        throw err;
+      }
+    },
+    [currentUser, pushNotif]
   );
 
   useChatSocket({
@@ -2060,6 +2104,8 @@ export default function HaitiSocialApp() {
           privateMessages={privateMessages}
           loadingPrivateMessages={loadingPrivateMessages}
           onSendMessage={handleSendPrivateChatMessage}
+          onEditMessage={handleEditPrivateMessage}
+          onDeleteMessage={handleDeletePrivateMessage}
           onlineUsersSet={onlineUsersSet}
           getUnreadCount={getUnreadCount}
           setScreen={setScreen}

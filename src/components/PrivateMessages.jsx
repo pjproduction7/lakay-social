@@ -11,6 +11,8 @@ export default function PrivateMessages({
   privateMessages,
   loadingPrivateMessages,
   onSendMessage,
+  onEditMessage,
+  onDeleteMessage,
   onlineUsersSet,
   getUnreadCount,
   markMessagesAsRead,
@@ -62,6 +64,8 @@ export default function PrivateMessages({
             bannedWords={[]}
             isLoading={loadingPrivateMessages}
             onSendMessage={(message) => onSendMessage(currentChatUser, message)}
+            onEditMessage={onEditMessage ? (messageId, content) => onEditMessage(messageId, content) : undefined}
+            onDeleteMessage={onDeleteMessage}
           />
         </div>
       )}
@@ -77,6 +81,8 @@ PrivateMessages.propTypes = {
   privateMessages: PropTypes.array.isRequired,
   loadingPrivateMessages: PropTypes.bool,
   onSendMessage: PropTypes.func.isRequired,
+  onEditMessage: PropTypes.func,
+  onDeleteMessage: PropTypes.func,
   onlineUsersSet: PropTypes.object,
   getUnreadCount: PropTypes.func.isRequired,
   markMessagesAsRead: PropTypes.func.isRequired,

@@ -1,6 +1,7 @@
 
 import { Router } from "express";
 import { z } from "zod";
+import validator from "validator";
 import { query } from "../db.js";
 import multer from "multer";
 import cloudinary from "cloudinary";
@@ -34,18 +35,19 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
+    if (file.mimetype.startsWith('image/') && 
+        ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed'));
+      cb(new Error('Only JPEG, PNG, GIF, and WebP images are allowed'));
     }
   }
 });
 
 const profileSchema = z.object({
-  displayName: z.string().min(1).max(80),
-  bio: z.string().max(280).optional(),
-  location: z.string().max(120).optional(),
+  displayName: z.string().min(1).max(80).transform(val => validator.escape(val)),
+  bio: z.string().max(280).optional().transform(val => val ? validator.escape(val) : val),
+  location: z.string().max(120).optional().transform(val => val ? validator.escape(val) : val),
 });
 
 router.get("/", async (_req, res) => {

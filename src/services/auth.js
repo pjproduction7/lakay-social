@@ -86,17 +86,19 @@ export async function getAdminStats() {
 }
 
 export async function adminCreateUser({ username, password, email }) {
-  // Use the public signup endpoint to create a new user (admin may use this for quick create)
-  const result = await apiRequest('/auth/signup', {
+  return apiRequest('/admin/users', {
     method: 'POST',
-    body: { username, password, email }
+    body: { username, password, email },
+    auth: true,
   });
-  return result;
 }
 
-export async function adminChangePassword() {
-  // Keep default behavior for now; admin password reset implementation may be added later
-  throw new Error('Password reset is unavailable in this static version.');
+export async function adminResetPassword(username, newPassword) {
+  return apiRequest(`/admin/users/${encodeURIComponent(username)}/password`, {
+    method: 'PUT',
+    body: { newPassword },
+    auth: true,
+  });
 }
 
 export async function getAllPosts() {

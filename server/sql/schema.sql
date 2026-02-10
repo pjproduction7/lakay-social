@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(32) UNIQUE NOT NULL,
     email VARCHAR(160) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    mfa_secret TEXT,
+    mfa_enabled BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
