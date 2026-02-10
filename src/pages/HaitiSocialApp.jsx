@@ -959,6 +959,7 @@ export default function HaitiSocialApp() {
     if (Array.isArray(saved.bannedUsers)) setBannedUsers(saved.bannedUsers);
     if (Array.isArray(saved.shadowBannedUsers)) setShadowBannedUsers(saved.shadowBannedUsers);
     if (saved.onboardingDismissedUsers) setOnboardingDismissedUsers(saved.onboardingDismissedUsers);
+    if (Array.isArray(saved.musicTracks)) setMusicTracks(saved.musicTracks);
   }, []);
 
   // Save state on changes
@@ -980,7 +981,8 @@ export default function HaitiSocialApp() {
       moderators,
       bannedUsers,
       shadowBannedUsers,
-      onboardingDismissedUsers
+      onboardingDismissedUsers,
+      musicTracks
     });
   }, [
     language,
@@ -999,7 +1001,8 @@ export default function HaitiSocialApp() {
     moderators,
     bannedUsers,
     shadowBannedUsers,
-    onboardingDismissedUsers
+    onboardingDismissedUsers,
+    musicTracks
   ]);
 
   // Auto-login if session exists
@@ -1372,6 +1375,11 @@ export default function HaitiSocialApp() {
   // ========== MUSIC HANDLERS ==========
 
   const handleMusicUpload = () => {
+    if (musicTracks.length >= 10) {
+      pushNotif("⚠️ You can only have up to 10 songs. Delete some songs first.");
+      return;
+    }
+    
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'audio/*';
@@ -1408,6 +1416,13 @@ export default function HaitiSocialApp() {
     };
     
     input.click();
+  };
+
+  const handleDeleteMusicTrack = (trackId) => {
+    if (window.confirm("Delete this song? This cannot be undone.")) {
+      setMusicTracks(prev => prev.filter(track => track.id !== trackId));
+      pushNotif("🗑️ Song deleted");
+    }
   };
 
   // ========== GAME HANDLERS ==========
@@ -1888,6 +1903,8 @@ export default function HaitiSocialApp() {
           onLike={(id) => setMusicTracks((prev) => prev.map((t) => (t.id === id ? { ...t, likes: t.likes + 1 } : t)))}
           onDislike={(id) => setMusicTracks((prev) => prev.map((t) => (t.id === id ? { ...t, dislikes: t.dislikes + 1 } : t)))}
           openProfile={openProfile}
+          onDelete={handleDeleteMusicTrack}
+          currentUser={currentUser}
         />
       </Shell>
     );

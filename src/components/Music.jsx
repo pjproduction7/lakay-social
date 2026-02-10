@@ -1,8 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Bookmark, ThumbsUp } from 'lucide-react';
+import { Bookmark, ThumbsUp, Trash2 } from 'lucide-react';
 
-export default function Music({ tracks, onUpload, onToggleSave, onLike, onDislike, openProfile }) {
+export default function Music({ tracks, onUpload, onToggleSave, onLike, onDislike, onDelete, openProfile, currentUser }) {
   return (
     <div>
       <div className="flex justify-end mb-4">
@@ -19,9 +19,16 @@ export default function Music({ tracks, onUpload, onToggleSave, onLike, onDislik
               <h3 className="font-bold text-lg">{track.title}</h3>
               <p className="text-sm text-blue-600 cursor-pointer hover:underline" onClick={() => openProfile(track.artist)}>by {track.artist}</p>
             </div>
-            <button onClick={() => onToggleSave(`music:${track.id}`)} title="Save">
-              <Bookmark className="text-gray-600 hover:text-black" />
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => onToggleSave(`music:${track.id}`)} title="Save">
+                <Bookmark className="text-gray-600 hover:text-black" />
+              </button>
+              {track.artist === currentUser && (
+                <button onClick={() => onDelete(track.id)} title="Delete" className="text-red-600 hover:text-red-800">
+                  <Trash2 size={20} />
+                </button>
+              )}
+            </div>
           </div>
 
           {track.audioUrl && (
@@ -54,4 +61,6 @@ Music.propTypes = {
   onLike: PropTypes.func.isRequired,
   onDislike: PropTypes.func.isRequired,
   openProfile: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  currentUser: PropTypes.string.isRequired,
 };

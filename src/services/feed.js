@@ -44,9 +44,6 @@ export async function updatePost(postId, { content }) {
     auth: true,
   });
 }
-    auth: true,
-  });
-}
 
 export async function deletePost(postId) {
   return apiRequest(`/posts/${postId}`, {

@@ -313,8 +313,8 @@ export default function AdminPanel({
             <p className="text-white/60 text-sm mt-2">⚠️ This will permanently delete all chat messages</p>
           </div>
 
-          {/* Account Utilities */}
-          <div className="grid lg:grid-cols-3 gap-4 mb-6">
+          {/* Account Utilities - Temporarily disabled */}
+          {/* <div className="grid lg:grid-cols-3 gap-4 mb-6">
             <div className="bg-white/10 backdrop-blur rounded-xl p-4">
               <div className="flex items-center gap-2 text-white font-bold text-lg mb-3">
                 <UserPlus size={20} /> Quick Create User
@@ -397,7 +397,7 @@ export default function AdminPanel({
                 Update Password
               </button>
             </div>
-          </div>
+          </div> */}
 
           {/* User Management */}
           <div className="bg-white/10 backdrop-blur rounded-xl p-4">
@@ -477,8 +477,8 @@ export default function AdminPanel({
             </div>
           </div>
 
-          {/* Content Moderation */}
-          <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">
+          {/* Content Moderation - Temporarily disabled */}
+          {/* <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">
             <h3 className="text-white font-bold text-xl mb-4 flex items-center gap-2">
               <FileText size={24} /> Content Moderation
             </h3>
@@ -536,10 +536,10 @@ export default function AdminPanel({
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
 
-          {/* System Settings */}
-          <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">
+          {/* System Settings - Temporarily disabled */}
+          {/* <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">
             <h3 className="text-white font-bold text-xl mb-4 flex items-center gap-2">
               <Settings size={24} /> System Settings
             </h3>
@@ -603,7 +603,7 @@ export default function AdminPanel({
                 />
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* System Announcements */}
           <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">
@@ -642,8 +642,8 @@ export default function AdminPanel({
             </div>
           </div>
 
-          {/* Profile Editor */}
-          <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">
+          {/* Profile Editor - Temporarily disabled */}
+          {/* <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">
             <h3 className="text-white font-bold text-xl mb-4">👤 Edit User Profiles</h3>
             
             <div className="grid md:grid-cols-2 gap-4 mb-4">
@@ -691,28 +691,13 @@ export default function AdminPanel({
                 placeholder="Location"
               />
             </div>
-          </div>
+          </div> */}
+
+          {/* Recent Activity */}
+          <div className="bg-white/10 backdrop-blur rounded-xl p-4 mb-6">
             <h4 className="text-xl font-bold text-white mb-4">📋 Recent Activity</h4>
             <div className="space-y-2 max-h-64 overflow-y-auto">
-              {adminLogs.recentUsers?.length > 0 && (
-                <div>
-                  <h5 className="text-white font-semibold">New Users:</h5>
-                  {adminLogs.recentUsers.map((user, i) => (
-                    <div key={i} className="text-white/80 text-sm">• {user.username} ({new Date(user.created_at).toLocaleDateString()})</div>
-                  ))}
-                </div>
-              )}
-              {adminLogs.recentRoleChanges?.length > 0 && (
-                <div>
-                  <h5 className="text-white font-semibold">Role Changes:</h5>
-                  {adminLogs.recentRoleChanges.map((change, i) => (
-                    <div key={i} className="text-white/80 text-sm">• {change.granted_by} {change.role === 'banned' ? 'banned' : change.role === 'moderator' ? 'made moderator' : 'assigned role'} {change.target} ({new Date(change.granted_at).toLocaleDateString()})</div>
-                  ))}
-                </div>
-              )}
-              {(!adminLogs.recentUsers?.length && !adminLogs.recentRoleChanges?.length) && (
-                <div className="text-white/60 text-sm">No recent activity</div>
-              )}
+              <div className="text-white/60 text-sm">No recent activity</div>
             </div>
           </div>
         </div>
