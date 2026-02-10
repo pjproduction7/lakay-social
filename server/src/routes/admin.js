@@ -299,3 +299,5 @@ router.post("/announcement", requireAuth, requireAdmin, async (req, res) => {
     res.status(500).json({ error: "Failed to send announcement" });
   }
 });
+
+export default router;
