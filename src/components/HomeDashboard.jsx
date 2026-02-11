@@ -62,7 +62,26 @@ export default function HomeDashboard({
               )}
             </button>
 
-            <button onClick={() => openProfile(currentUser)} className="text-sm px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold">My Profile</button>
+            <div className="relative inline-block group" tabIndex={0} aria-hidden={false}>
+              <button
+                onClick={() => openProfile(currentUser)}
+                disabled={!currentUser}
+                aria-disabled={!currentUser}
+                className={`text-sm px-3 py-2 rounded-lg font-semibold ${currentUser ? 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer' : 'bg-blue-400 text-white opacity-60 cursor-not-allowed'}`}
+              >
+                My Profile
+              </button>
+
+              {!currentUser && (
+                <span
+                  className="absolute -top-9 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs rounded px-2 py-1 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-focus:opacity-100 z-10 whitespace-nowrap"
+                  role="tooltip"
+                  aria-hidden="true"
+                >
+                  Please log in to view your profile
+                </span>
+              )}
+            </div>
 
             <button onClick={handleLogout} className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 font-semibold text-sm">Logout</button>
           </div>

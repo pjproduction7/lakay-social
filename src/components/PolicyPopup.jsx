@@ -1,7 +1,7 @@
 import React from "react";
 import PropTypes from 'prop-types';
 
-export default function PolicyPopup({ onAccept }) {
+export default function PolicyPopup({ onAccept, onGuestFeed, onGuestMemorials }) {
   return (
     <div style={styles.overlay}>
       <div style={styles.box}>
@@ -27,9 +27,17 @@ export default function PolicyPopup({ onAccept }) {
           </a>
         </p>
 
-        <button style={styles.button} onClick={onAccept}>
-          I Agree & Continue
-        </button>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 20 }}>
+          <button style={styles.button} onClick={onAccept}>
+            I Agree & Continue
+          </button>
+          <button style={{ ...styles.button, background: '#6b46c1', color: 'white' }} onClick={() => (onGuestFeed ? onGuestFeed() : onAccept())}>
+            Browse Feed
+          </button>
+          <button style={{ ...styles.button, background: '#805ad5', color: 'white' }} onClick={() => (onGuestMemorials ? onGuestMemorials() : onAccept())}>
+            View Memorials
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -37,6 +45,13 @@ export default function PolicyPopup({ onAccept }) {
 
 PolicyPopup.propTypes = {
   onAccept: PropTypes.func.isRequired,
+  onGuestFeed: PropTypes.func,
+  onGuestMemorials: PropTypes.func,
+};
+
+PolicyPopup.defaultProps = {
+  onGuestFeed: null,
+  onGuestMemorials: null,
 };
 
 const styles = {

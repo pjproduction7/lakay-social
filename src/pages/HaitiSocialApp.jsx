@@ -52,7 +52,7 @@ import {
 } from '../services/profilePhotos';
 import { loadState, saveState, containsProfanity, validatePassword, validateEmail, compressImage } from '../utils/helpers';
 import { BLACKLISTED_POLITICIANS } from '../utils/constants';
-import { getApiBaseUrl } from '../services/api';
+
 import { PHOTO_FILTERS, MAX_PROFILE_PHOTOS } from '../../shared/photoFilters';
 import {
   fetchPosts,
@@ -654,7 +654,7 @@ export default function HaitiSocialApp() {
     console.log(`refreshAdminData called, isAdmin=${isAdmin}`);
     if (!isAdmin) return;
     try {
-      const { getAllUsers: getAdminUsers, getAdminStats, getAdminLogs } = await import('../services/auth');
+      const { getAllUsers: getAdminUsers, getAdminStats, getAdminLogs, getUserRoles } = await import('../services/auth');
       const [usersRes, statsRes, logsRes] = await Promise.all([
         getAdminUsers(),
         getAdminStats(),
@@ -669,7 +669,7 @@ export default function HaitiSocialApp() {
         try {
           const userRolesRes = await getUserRoles(user.username);
           roles[user.username] = userRolesRes.roles || [];
-        } catch (e) {
+        } catch {
           roles[user.username] = [];
         }
       }
@@ -848,6 +848,7 @@ export default function HaitiSocialApp() {
         timestamp: post.timestamp,
       }));
       setPosts(formatted);
+      console.log(`loadFeed -> ${formatted.length} posts`);
 
       // Load memorials from posts
       const memorialsFromPosts = remotePosts
@@ -893,6 +894,7 @@ export default function HaitiSocialApp() {
         });
       
       setMemorials(memorialsFromPosts);
+      console.log(`loadFeed -> memorials: ${memorialsFromPosts.length}`);
     } catch (err) {
       console.error(err);
       pushNotif(`❌ Failed to load feed: ${err?.message || "Unknown error"}`);
@@ -1020,7 +1022,16 @@ export default function HaitiSocialApp() {
 
   const openProfile = (user) => {
     const targetUsername = typeof user === 'string' ? user : (user?.username || currentUser);
-    if (!targetUsername) return;
+    console.log('openProfile called:', { user, targetUsername, currentUser, hasProfile: !!profiles[targetUsername] });
+
+    if (!targetUsername) {
+      console.log('openProfile: no targetUsername. Redirecting to login if not logged in.');
+      if (!currentUser) {
+        pushNotif && pushNotif('⚠️ Please log in to view profiles');
+        setScreen && setScreen('login');
+      }
+      return;
+    }
 
     setViewProfileUser(targetUsername);
 
@@ -1044,6 +1055,7 @@ export default function HaitiSocialApp() {
       setEditLocation(p.location || "");
     }
 
+    console.log('Navigating to profile screen for', targetUsername);
     setScreen("profile");
   };
 
@@ -1167,6 +1179,11 @@ export default function HaitiSocialApp() {
     loadProfile(session.username);
     refreshPrivateMessages();
   }, [refreshUsers, loadFeed, loadProfile, refreshPrivateMessages]);
+
+  // Ensure feed is loaded on initial mount even when user is not logged in
+  useEffect(() => {
+    loadFeed();
+  }, [loadFeed]);
 
   // Ensure current user has profile
   useEffect(() => {
@@ -1761,7 +1778,13 @@ export default function HaitiSocialApp() {
   
   if (screen === "login") {
     if (!policyAccepted) {
-      return <PolicyPopup onAccept={() => setPolicyAccepted(true)} />;
+      return (
+        <PolicyPopup
+          onAccept={() => setPolicyAccepted(true)}
+          onGuestFeed={() => { setPolicyAccepted(true); setScreen('feed'); }}
+          onGuestMemorials={() => { setPolicyAccepted(true); setScreen('memorials'); }}
+        />
+      );
     }
 
     return (
@@ -1793,12 +1816,27 @@ export default function HaitiSocialApp() {
             </div>
             <h2 className="lakay-hero-title">Lakay Social</h2>
             <p className="lakay-hero-subtitle mt-2">
+            </p>
+
+            <div className="flex gap-3 justify-center mt-6">
+              <button
+                onClick={() => setScreen('feed')}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg"
+              >
+                Browse Feed
+              </button>
+              <button
+                onClick={() => setScreen('memorials')}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-lg"
+              >
+                View Memorials
+              </button>
+            </div>
               <span className="lakay-hero-word lakay-hero-ayiti">Ayiti</span>
               <span className="lakay-hero-divider">•</span>
               <span className="lakay-hero-word lakay-hero-diaspora">Diaspora</span>
               <span className="lakay-hero-divider">•</span>
               <span className="lakay-hero-word lakay-hero-unity">Unity</span>
-            </p>
           </div>
 
           <div className={`${cardBg} rounded-2xl p-6 shadow-2xl`}>
@@ -2031,6 +2069,7 @@ export default function HaitiSocialApp() {
           handleAddComment={handleAddComment}
           onEditPost={handleEditPost}
           onDeletePost={handleDeletePost}
+          onViewMemorials={() => setScreen('memorials')}
         />
       </Shell>
     );

@@ -22,6 +22,7 @@ export default function Feed({
   handleAddComment,
   onEditPost,
   onDeletePost,
+  onViewMemorials,
 }) {
   return (
     <>
@@ -81,25 +82,38 @@ export default function Feed({
         {posts.length === 0 ? (
           <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl p-12 text-center shadow-2xl">
             <MessageSquare size={64} className="mx-auto mb-4 text-white" />
-            <p className="text-white text-xl font-bold">No posts yet. Be the first to share!</p>
+            <p className="text-white text-xl font-bold">No posts yet. You can sign in to create a post or explore Memorials.</p>
+            <div className="mt-4 flex justify-center gap-3">
+              <button onClick={() => onViewMemorials && onViewMemorials()} className="bg-white text-purple-700 py-2 px-4 rounded-lg font-bold">View Memorials</button>
+            </div>
           </div>
         ) : (
           posts.map((post) => (
             <div key={post.id} className="bg-gradient-to-br from-yellow-400 via-orange-400 to-red-400 rounded-2xl p-6 shadow-2xl border-4 border-white/50">
               {/* Post Header */}
               <div className="flex items-center gap-3 mb-4">
-                <div
-                  className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold cursor-pointer border-4 border-white shadow-lg text-xl"
-                  onClick={() => openProfile(post.user)}
-                >
-                  {post.user[0].toUpperCase()}
-                </div>
-                <div className="flex-1">
+                <div className="relative inline-block group" tabIndex={0}>
                   <div
-                    className="font-bold text-white text-lg cursor-pointer hover:underline"
+                    className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold cursor-pointer border-4 border-white shadow-lg text-xl"
                     onClick={() => openProfile(post.user)}
                   >
-                    {post.user}
+                    {post.user[0].toUpperCase()}
+                  </div>
+                  {!currentUser && (
+                    <span className="absolute -top-9 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs rounded px-2 py-1 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-focus:opacity-100 z-10 whitespace-nowrap" role="tooltip" aria-hidden="true">Please log in to view profiles</span>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="relative inline-block group" tabIndex={0}>
+                    <div
+                      className="font-bold text-white text-lg cursor-pointer hover:underline"
+                      onClick={() => openProfile(post.user)}
+                    >
+                      {post.user}
+                    </div>
+                    {!currentUser && (
+                      <span className="absolute -top-9 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs rounded px-2 py-1 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-focus:opacity-100 z-10 whitespace-nowrap" role="tooltip" aria-hidden="true">Please log in to view profiles</span>
+                    )}
                   </div>
                   <div className="text-sm text-white/80">
                     {new Date(post.timestamp).toLocaleString()}
@@ -182,18 +196,28 @@ export default function Feed({
               <div className="space-y-3 mb-4">
                 {post.comments.map((comment, idx) => (
                   <div key={idx} className="flex gap-3">
-                    <div
-                      className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center text-white text-sm font-bold cursor-pointer flex-shrink-0 border-2 border-white"
-                      onClick={() => openProfile(comment.user)}
-                    >
-                      {comment.user[0].toUpperCase()}
-                    </div>
-                    <div className="flex-1 bg-white rounded-xl p-3 shadow-lg">
+                    <div className="relative inline-block group" tabIndex={0}>
                       <div
-                        className="font-bold text-sm cursor-pointer hover:text-blue-600"
+                        className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center text-white text-sm font-bold cursor-pointer flex-shrink-0 border-2 border-white"
                         onClick={() => openProfile(comment.user)}
                       >
-                        {comment.user}
+                        {comment.user[0].toUpperCase()}
+                      </div>
+                      {!currentUser && (
+                        <span className="absolute -top-9 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs rounded px-2 py-1 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-focus:opacity-100 z-10 whitespace-nowrap" role="tooltip" aria-hidden="true">Please log in to view profiles</span>
+                      )}
+                    </div>
+                    <div className="flex-1 bg-white rounded-xl p-3 shadow-lg">
+                      <div className="relative inline-block group" tabIndex={0}>
+                        <div
+                          className="font-bold text-sm cursor-pointer hover:text-blue-600"
+                          onClick={() => openProfile(comment.user)}
+                        >
+                          {comment.user}
+                        </div>
+                        {!currentUser && (
+                          <span className="absolute -top-9 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs rounded px-2 py-1 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-focus:opacity-100 z-10 whitespace-nowrap" role="tooltip" aria-hidden="true">Please log in to view profiles</span>
+                        )}
                       </div>
                       <div className="text-sm text-gray-800">{comment.text}</div>
                     </div>
@@ -246,4 +270,9 @@ Feed.propTypes = {
   handleAddComment: PropTypes.func.isRequired,
   onEditPost: PropTypes.func.isRequired,
   onDeletePost: PropTypes.func.isRequired,
+  onViewMemorials: PropTypes.func,
+};
+
+Feed.defaultProps = {
+  onViewMemorials: null,
 };
