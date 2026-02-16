@@ -31,6 +31,7 @@ export default function AdminPanel({
   const [passwordTarget, setPasswordTarget] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [allPosts, setAllPosts] = useState([]);
+  const [pendingPosts, setPendingPosts] = useState([]);
   const [allMessages, setAllMessages] = useState([]);
   const [systemSettings, setSystemSettings] = useState({});
   const [announcementMessage, setAnnouncementMessage] = useState('');
@@ -196,6 +197,40 @@ export default function AdminPanel({
     }
   };
 
+  const handleLoadPendingPosts = async () => {
+    try {
+      const { getPendingPosts } = await import('../../services/auth');
+      const posts = await getPendingPosts();
+      setPendingPosts(posts);
+      pushNotif(`✅ Loaded ${posts.length} pending posts`);
+    } catch (err) {
+      pushNotif(`❌ Failed to load pending posts: ${err.message}`);
+    }
+  };
+
+  const handleApprovePost = async (postId) => {
+    try {
+      const { approvePost } = await import('../../services/auth');
+      await approvePost(postId);
+      setPendingPosts(prev => prev.filter(p => p.id !== postId));
+      pushNotif('✅ Post approved');
+    } catch (err) {
+      pushNotif(`❌ Failed to approve post: ${err.message}`);
+    }
+  };
+
+  const handleRejectPost = async (postId) => {
+    if (!window.confirm('Reject this post? It will be deleted permanently.')) return;
+    try {
+      const { rejectPost } = await import('../../services/auth');
+      await rejectPost(postId);
+      setPendingPosts(prev => prev.filter(p => p.id !== postId));
+      pushNotif('✅ Post rejected');
+    } catch (err) {
+      pushNotif(`❌ Failed to reject post: ${err.message}`);
+    }
+  };
+
   const handleLoadMessages = async () => {
     try {
       const { getAllMessages } = await import('../../services/auth');
@@ -320,7 +355,7 @@ export default function AdminPanel({
         </div>
 
         {/* Content */}
-        <div className="px-6 pb-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+        <div className="px-6 pb-6 overflow-y-auto" style={{ scrollbarWidth: 'thin', maxHeight: 'calc(85vh - 200px)' }}>
           {/* Danger Zone */}
           <div className="bg-red-600/20 border-2 border-red-500 rounded-xl p-6 mb-6">
             <h4 className="text-xl font-bold text-white mb-4">⚠️ DANGER ZONE</h4>
@@ -504,7 +539,41 @@ export default function AdminPanel({
               <FileText size={24} /> Content Moderation
             </h3>
 
-            <div className="grid md:grid-cols-2 gap-4 mb-4">
+            <div className="grid md:grid-cols-3 gap-4 mb-4">
+              <div>
+                <button
+                  onClick={handleLoadPendingPosts}
+                  className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 rounded-lg mb-2"
+                >
+                  Pending Posts ({pendingPosts.length})
+                </button>
+                <div className="max-h-64 overflow-y-auto space-y-2">
+                  {pendingPosts.map(post => (
+                    <div key={post.id} className="bg-gray-800 p-3 rounded-lg">
+                      <div className="text-white font-semibold">{post.username} ({post.post_type})</div>
+                      <div className="text-white/80 text-sm mb-2">{post.content}</div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-white/60 text-xs">{new Date(post.created_at).toLocaleString()}</span>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleApprovePost(post.id)}
+                            className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleRejectPost(post.id)}
+                            className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div>
                 <button
                   onClick={handleLoadPosts}
@@ -726,26 +795,3 @@ export default function AdminPanel({
     </div>
   );
 }
-
-import PropTypes from 'prop-types';
-
-AdminPanel.propTypes = {
-  currentUser: PropTypes.string.isRequired,
-  isAdmin: PropTypes.bool.isRequired,
-  allUsers: PropTypes.array.isRequired,
-  adminUsers: PropTypes.array,
-  userRoles: PropTypes.object,
-  adminStats: PropTypes.object,
-  adminLogs: PropTypes.object,
-  bannedUsers: PropTypes.array.isRequired,
-  setBannedUsers: PropTypes.func.isRequired,
-  shadowBannedUsers: PropTypes.array.isRequired,
-  setShadowBannedUsers: PropTypes.func.isRequired,
-  moderators: PropTypes.array.isRequired,
-  setModerators: PropTypes.func.isRequired,
-  setMessages: PropTypes.func.isRequired,
-  refreshUsers: PropTypes.func,
-  refreshAdminData: PropTypes.func,
-  onClose: PropTypes.func.isRequired,
-  pushNotif: PropTypes.func.isRequired,
-};

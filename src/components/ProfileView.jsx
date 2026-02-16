@@ -15,7 +15,6 @@ export default function ProfileView({
   isUploadingPhotos,
   handleProfilePhotoUpload,
   PHOTO_FILTERS,
-  aiFiltersEnabled,
   selectedFilterStyle,
   setSelectedFilterStyle,
   MAX_PROFILE_PHOTOS,
@@ -53,37 +52,9 @@ export default function ProfileView({
         {isMe && (
           <div className="mt-6">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <div className="font-bold text-gray-900">AI Photo Filters</div>
+              <div className="font-bold text-gray-900">Photo Gallery</div>
               <div className="text-sm text-gray-600">{(p.photos?.length || 0)} / {MAX_PROFILE_PHOTOS} photos</div>
             </div>
-
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              {PHOTO_FILTERS.map((filter) => {
-                const disabled = !aiFiltersEnabled && filter.id !== 'original';
-                const isSelected = selectedFilterStyle === filter.id;
-                return (
-                  <button
-                    key={filter.id}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => setSelectedFilterStyle(filter.id)}
-                    className={`text-left rounded-xl border p-3 transition ${isSelected ? 'border-blue-600 bg-blue-50' : 'border-gray-200 hover:border-blue-400'} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  >
-                    <div className="flex items-center justify-between text-sm font-semibold text-gray-900">
-                      <span>{filter.label}</span>
-                      <span className={`text-xs ${filter.id === 'original' ? 'text-gray-500' : 'text-purple-600'}`}>
-                        {filter.id === 'original' ? 'No AI' : 'AI'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-600 mt-1">{filter.description}</p>
-                  </button>
-                );
-              })}
-            </div>
-
-            {!aiFiltersEnabled && (
-              <p className="text-xs text-amber-600 mt-2">AI filters are temporarily unavailable. Uploads will use the original photo.</p>
-            )}
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <label className={`px-4 py-2 rounded-lg font-semibold text-white cursor-pointer ${isUploadingPhotos ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}>
@@ -99,7 +70,7 @@ export default function ProfileView({
         <div className="mt-4">
           <div className="font-bold text-gray-900 mb-2">Bio</div>
           {isMe ? (
-            <textarea className="w-full p-3 rounded-lg border-2 text-gray-900" rows={3} value={editBio} onChange={(e) => onEditBioChange(e.target.value)} placeholder="Tell people about you..." />
+            <textarea className="w-full p-3 rounded-lg border-2 text-gray-900" rows={3} value={editBio} onChange={(e) => onEditBioChange(e.target.value)} placeholder="Tell me about you..." />
           ) : (
             <div className="text-gray-800 bg-gray-100 p-3 rounded-lg">{p.bio || 'No bio yet.'}</div>
           )}
@@ -190,7 +161,6 @@ ProfileView.propTypes = {
   isUploadingPhotos: PropTypes.bool,
   handleProfilePhotoUpload: PropTypes.func.isRequired,
   PHOTO_FILTERS: PropTypes.array,
-  aiFiltersEnabled: PropTypes.bool,
   selectedFilterStyle: PropTypes.string,
   setSelectedFilterStyle: PropTypes.func,
   MAX_PROFILE_PHOTOS: PropTypes.number,

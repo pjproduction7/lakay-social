@@ -460,4 +460,49 @@ router.post("/announcement", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// GET /admin/posts/pending - Get pending posts (unapproved memorials)
+router.get("/posts/pending", requireAuth, requireAdmin, async (_req, res) => {
+  try {
+    const result = await query(
+      "SELECT p.id, p.username, p.content, p.image_url, p.post_type, p.created_at, u.email, pr.display_name FROM posts p LEFT JOIN users u ON LOWER(p.username) = LOWER(u.username) LEFT JOIN profiles pr ON u.id = pr.user_id WHERE p.approved = false ORDER BY p.created_at DESC"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch pending posts" });
+  }
+});
+
+// PUT /admin/posts/:id/approve - Approve a post
+router.put("/posts/:id/approve", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await query("UPDATE posts SET approved = true WHERE id = $1 RETURNING id", [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+    auditLog('POST_APPROVED', req.user.id, { postId: id });
+    res.json({ message: "Post approved successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to approve post" });
+  }
+});
+
+// PUT /admin/posts/:id/reject - Reject a post (delete it)
+router.put("/posts/:id/reject", requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await query("DELETE FROM posts WHERE id = $1 RETURNING id", [id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Post not found" });
+    }
+    auditLog('POST_REJECTED', req.user.id, { postId: id });
+    res.json({ message: "Post rejected and deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to reject post" });
+  }
+});
+
 export default router;

@@ -4,11 +4,23 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 import speakeasy from "speakeasy";
 import qrcode from "qrcode";
+import rateLimit from "express-rate-limit";
 import { query } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
+import { sendEmail } from "../services/email.js";
 
 const router = Router();
 const { JWT_SECRET = "change-me" } = process.env;
+
+// Rate limiting for auth routes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 requests per windowMs
+  message: "Too many authentication attempts, please try again later.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const loginSchema = z.object({
   username: z.string().min(3).max(32),
   password: z.string().min(8).max(128),
@@ -18,7 +30,7 @@ const signupSchema = loginSchema.extend({
   email: z.string().email(),
 });
 
-router.post("/signup", async (req, res) => {
+router.post("/signup", authLimiter, async (req, res) => {
   const parse = signupSchema.safeParse(req.body);
   if (!parse.success) {
     return res.status(400).json({ error: parse.error.flatten().fieldErrors });
@@ -46,6 +58,20 @@ router.post("/signup", async (req, res) => {
     );
 
     const token = jwt.sign({ id: insert.rows[0].id, username }, JWT_SECRET, { expiresIn: "7d" });
+    
+    // Send email notification to admin
+    try {
+      await sendEmail({
+        to: process.env.ADMIN_EMAIL,
+        subject: "New User Registration - Lakay Social",
+        text: `A new user has registered:\n\nUsername: ${username}\nEmail: ${email}\nCreated: ${insert.rows[0].created_at}`,
+        html: `<h2>New User Registration</h2><p><strong>Username:</strong> ${username}</p><p><strong>Email:</strong> ${email}</p><p><strong>Created:</strong> ${insert.rows[0].created_at}</p>`
+      });
+    } catch (emailErr) {
+      console.error("Failed to send registration email:", emailErr);
+      // Don't fail the signup if email fails
+    }
+    
     res.status(201).json({ user: insert.rows[0], token });
   } catch (err) {
     console.error(err);
@@ -53,7 +79,7 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", authLimiter, async (req, res) => {
   const parse = loginSchema.safeParse(req.body);
   if (!parse.success) {
     return res.status(400).json({ error: "Invalid credentials" });
@@ -70,10 +96,8 @@ router.post("/login", async (req, res) => {
     }
 
     const user = result.rows[0];
-    console.log("Login attempt:", { username, submittedPassword: password, dbPasswordHash: user.password_hash });
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
-      console.log("Password comparison failed");
       return res.status(401).json({ error: "Invalid password" });
     }
 

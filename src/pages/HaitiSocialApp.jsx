@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Star } from "lucide-react";
+import { Star, Camera, X } from "lucide-react";
 
 // Components
 import SpinningLogo from '../components/shared/SpinningLogo';
@@ -133,7 +133,6 @@ export default function HaitiSocialApp() {
   const [adminLogs, setAdminLogs] = useState({});
 
   // AI photo filter usage state
-  const [aiFiltersEnabled, setAiFiltersEnabled] = useState(false);
   const [selectedFilterStyle, setSelectedFilterStyle] = useState(DEFAULT_FILTER_STYLE);
 
   // Photo delete modal state
@@ -189,6 +188,7 @@ export default function HaitiSocialApp() {
   // News form state
   const [newNewsTitle, setNewNewsTitle] = useState("");
   const [newNewsContent, setNewNewsContent] = useState("");
+  const [newNewsImage, setNewNewsImage] = useState(null);
   const [showNewsForm, setShowNewsForm] = useState(false);
 
   // Events form state
@@ -196,6 +196,7 @@ export default function HaitiSocialApp() {
   const [newEventDescription, setNewEventDescription] = useState("");
   const [newEventDate, setNewEventDate] = useState("");
   const [newEventLocation, setNewEventLocation] = useState("");
+  const [newEventImage, setNewEventImage] = useState(null);
   const [showEventForm, setShowEventForm] = useState(false);
 
   const openDeleteModal = (photoId) => {
@@ -220,12 +221,14 @@ export default function HaitiSocialApp() {
       id: Date.now(),
       title: newNewsTitle.trim(),
       content: newNewsContent.trim(),
+      image: newNewsImage,
       timestamp: "Just now"
     };
 
     setNewsArticles(prev => [newArticle, ...prev]);
     setNewNewsTitle("");
     setNewNewsContent("");
+    setNewNewsImage(null);
     setShowNewsForm(false);
     pushNotif("✅ News article added successfully!");
   };
@@ -241,7 +244,8 @@ export default function HaitiSocialApp() {
       title: newEventTitle.trim(),
       description: newEventDescription.trim(),
       date: newEventDate.trim(),
-      location: newEventLocation.trim()
+      location: newEventLocation.trim(),
+      image: newEventImage
     };
 
     setEvents(prev => [newEvent, ...prev]);
@@ -249,6 +253,7 @@ export default function HaitiSocialApp() {
     setNewEventDescription("");
     setNewEventDate("");
     setNewEventLocation("");
+    setNewEventImage(null);
     setShowEventForm(false);
     pushNotif("✅ Event added successfully!");
   };
@@ -934,7 +939,7 @@ export default function HaitiSocialApp() {
 
       setIsUploadingPhotos(true);
       try {
-        const filterToUse = aiFiltersEnabled ? selectedFilterStyle : "original";
+        const filterToUse = "original";
         await uploadProfilePhotos({ files: fileList, filter: filterToUse });
         await loadProfile(currentUser);
         await refreshUsers();
@@ -1192,16 +1197,6 @@ export default function HaitiSocialApp() {
   }, [currentUser, loadProfile]);
 
   useEffect(() => {
-    const bootstrapFilterMetadata = async () => {
-      try {
-        // Photo filters are static and always available
-        setAiFiltersEnabled(true);
-      } catch (err) {
-        console.warn("Failed to load filter metadata", err);
-      }
-    };
-
-    bootstrapFilterMetadata();
   }, []);
 
   useEffect(() => {
@@ -1209,12 +1204,6 @@ export default function HaitiSocialApp() {
       refreshPrivateMessages();
     }
   }, [screen, currentUser, refreshPrivateMessages]);
-
-  useEffect(() => {
-    if (!aiFiltersEnabled && selectedFilterStyle !== "original") {
-      setSelectedFilterStyle("original"); // Removed filter-related effects
-    }
-  }, [aiFiltersEnabled, selectedFilterStyle]);
 
   // Load admin data when admin panel opens
   useEffect(() => {
@@ -1531,6 +1520,44 @@ export default function HaitiSocialApp() {
       const compressed = await compressImage(file);
       setPostImage(compressed);
       pushNotif("✅ Image added");
+    }
+  };
+
+  const handleNewsImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        pushNotif("⚠️ Please upload an image file");
+        return;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        pushNotif("⚠️ Image too large. Max 5MB");
+        return;
+      }
+
+      const compressed = await compressImage(file);
+      setNewNewsImage(compressed);
+      pushNotif("✅ Image added to news");
+    }
+  };
+
+  const handleEventImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        pushNotif("⚠️ Please upload an image file");
+        return;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        pushNotif("⚠️ Image too large. Max 5MB");
+        return;
+      }
+
+      const compressed = await compressImage(file);
+      setNewEventImage(compressed);
+      pushNotif("✅ Image added to event");
     }
   };
 
@@ -2128,12 +2155,39 @@ export default function HaitiSocialApp() {
                   rows={4}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <button
-                  onClick={handleAddNews}
-                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-semibold"
-                >
-                  Publish Article
-                </button>
+                {newNewsImage && (
+                  <div className="relative">
+                    <img src={newNewsImage} alt="News preview" className="w-full max-h-40 object-cover rounded-lg border" />
+                    <button
+                      onClick={() => setNewNewsImage(null)}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    id="news-image"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleNewsImageUpload}
+                  />
+                  <label
+                    htmlFor="news-image"
+                    className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-200 text-center font-semibold"
+                  >
+                    <Camera size={16} className="inline mr-2" />
+                    Add Photo
+                  </label>
+                  <button
+                    onClick={handleAddNews}
+                    className="flex-1 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-semibold"
+                  >
+                    Publish Article
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -2141,6 +2195,9 @@ export default function HaitiSocialApp() {
           <div className="space-y-4">
             {newsArticles.map(article => (
               <div key={article.id} className="bg-white rounded-lg p-4 shadow">
+                {article.image && (
+                  <img src={article.image} alt={article.title} className="w-full h-48 object-cover rounded-lg mb-3" />
+                )}
                 <h3 className="font-bold text-lg">{article.title}</h3>
                 <p className="text-gray-600 mt-2">{article.content}</p>
                 <span className="text-sm text-gray-500 mt-2 block">{article.timestamp}</span>
@@ -2200,12 +2257,39 @@ export default function HaitiSocialApp() {
                   onChange={(e) => setNewEventLocation(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
-                <button
-                  onClick={handleAddEvent}
-                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-semibold"
-                >
-                  Create Event
-                </button>
+                {newEventImage && (
+                  <div className="relative">
+                    <img src={newEventImage} alt="Event preview" className="w-full max-h-40 object-cover rounded-lg border" />
+                    <button
+                      onClick={() => setNewEventImage(null)}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    id="event-image"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleEventImageUpload}
+                  />
+                  <label
+                    htmlFor="event-image"
+                    className="flex-1 bg-gray-100 text-gray-700 py-2 px-4 rounded-lg cursor-pointer hover:bg-gray-200 text-center font-semibold"
+                  >
+                    <Camera size={16} className="inline mr-2" />
+                    Add Photo
+                  </label>
+                  <button
+                    onClick={handleAddEvent}
+                    className="flex-1 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-semibold"
+                  >
+                    Create Event
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -2213,6 +2297,9 @@ export default function HaitiSocialApp() {
           <div className="space-y-4">
             {events.map(event => (
               <div key={event.id} className="bg-white rounded-lg p-4 shadow">
+                {event.image && (
+                  <img src={event.image} alt={event.title} className="w-full h-48 object-cover rounded-lg mb-3" />
+                )}
                 <h3 className="font-bold text-lg">{event.title}</h3>
                 <p className="text-gray-600 mt-2">{event.description}</p>
                 <p className="text-blue-600 font-semibold mt-2">{event.date} • {event.location}</p>
@@ -2496,7 +2583,6 @@ export default function HaitiSocialApp() {
           isUploadingPhotos={isUploadingPhotos}
           handleProfilePhotoUpload={handleProfilePhotoUpload}
           PHOTO_FILTERS={PHOTO_FILTERS}
-          aiFiltersEnabled={aiFiltersEnabled}
           selectedFilterStyle={selectedFilterStyle}
           setSelectedFilterStyle={setSelectedFilterStyle}
           MAX_PROFILE_PHOTOS={MAX_PROFILE_PHOTOS}

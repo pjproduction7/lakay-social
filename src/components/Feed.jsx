@@ -1,6 +1,5 @@
 import React from 'react';
 import { Camera, X, Send, Bookmark, MessageSquare, Edit, Trash2 } from 'lucide-react';
-import PropTypes from 'prop-types';
 
 export default function Feed({
   trans,
@@ -249,30 +248,3 @@ export default function Feed({
     </>
   );
 }
-
-Feed.propTypes = {
-  trans: PropTypes.object.isRequired,
-  postTextRef: PropTypes.object,
-  postText: PropTypes.string,
-  postImage: PropTypes.string,
-  postImageInputId: PropTypes.string,
-  handleImageUpload: PropTypes.func.isRequired,
-  handleCreatePost: PropTypes.func.isRequired,
-  posts: PropTypes.array.isRequired,
-  openProfile: PropTypes.func.isRequired,
-  currentUser: PropTypes.string,
-  isAdmin: PropTypes.bool,
-  toggleSave: PropTypes.func.isRequired,
-  handleToggleLike: PropTypes.func.isRequired,
-  handleReaction: PropTypes.func.isRequired,
-  commentRefs: PropTypes.object.isRequired,
-  commentTexts: PropTypes.object.isRequired,
-  handleAddComment: PropTypes.func.isRequired,
-  onEditPost: PropTypes.func.isRequired,
-  onDeletePost: PropTypes.func.isRequired,
-  onViewMemorials: PropTypes.func,
-};
-
-Feed.defaultProps = {
-  onViewMemorials: null,
-};

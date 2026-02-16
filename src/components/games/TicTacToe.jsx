@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react"; 
-import PropTypes from 'prop-types';
+import React, { useState, useEffect } from "react";
+import PropTypes from "prop-types";
 
 export default function TicTacToeGame({ onGameOver }) {
   const [board, setBoard] = useState(Array(9).fill(null));

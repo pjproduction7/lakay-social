@@ -152,10 +152,23 @@ export async function updateSystemSettings(settings) {
   });
 }
 
-export async function sendSystemAnnouncement({ message, type = 'info' }) {
-  return apiRequest("/admin/announcement", {
-    method: "POST",
-    body: { message, type },
+export async function getPendingPosts() {
+  return apiRequest("/admin/posts/pending", {
+    method: "GET",
+    auth: true,
+  });
+}
+
+export async function approvePost(postId) {
+  return apiRequest(`/admin/posts/${encodeURIComponent(postId)}/approve`, {
+    method: "PUT",
+    auth: true,
+  });
+}
+
+export async function rejectPost(postId) {
+  return apiRequest(`/admin/posts/${encodeURIComponent(postId)}/reject`, {
+    method: "PUT",
     auth: true,
   });
 }

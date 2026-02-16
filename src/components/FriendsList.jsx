@@ -1,5 +1,4 @@
 import React from 'react';
-import PropTypes from 'prop-types';
 
 export default function FriendsList({ otherUsers, currentUser, following, setFollowing, openProfile, setScreen, setCurrentChatUser, cardBg }) {
   return (
@@ -29,14 +28,3 @@ export default function FriendsList({ otherUsers, currentUser, following, setFol
     </div>
   );
 }
-
-FriendsList.propTypes = {
-  otherUsers: PropTypes.array.isRequired,
-  currentUser: PropTypes.string,
-  following: PropTypes.object.isRequired,
-  setFollowing: PropTypes.func.isRequired,
-  openProfile: PropTypes.func.isRequired,
-  setScreen: PropTypes.func.isRequired,
-  setCurrentChatUser: PropTypes.func.isRequired,
-  cardBg: PropTypes.string,
-};

@@ -1,5 +1,4 @@
 import React from 'react';
-import PropTypes from 'prop-types';
 import SpinningLogo from './shared/SpinningLogo';
 import HomeButton from './shared/HomeButton';
 import BigButton from './shared/BigButton';
@@ -23,7 +22,7 @@ export default function HomeDashboard({
   setShowAdminPanel,
 }) {
   return (
-    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-600 via-red-600 to-blue-800'} ${darkMode ? 'text-white' : 'text-white'}`}>
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-600 via-red-600 to-blue-800'} ${darkMode ? 'text-white' : 'text-white'} overflow-y-auto`}>
       <div className="max-w-2xl mx-auto p-4">
         {showPhoneModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">{/* phone modal is rendered by parent content */}</div>
@@ -134,22 +133,3 @@ export default function HomeDashboard({
     </div>
   );
 }
-
-HomeDashboard.propTypes = {
-  darkMode: PropTypes.bool,
-  setDarkMode: PropTypes.func.isRequired,
-  language: PropTypes.string.isRequired,
-  setLanguage: PropTypes.func.isRequired,
-  showPhoneModal: PropTypes.bool,
-  notifications: PropTypes.array.isRequired,
-  getTotalUnreadCount: PropTypes.func.isRequired,
-  setScreen: PropTypes.func.isRequired,
-  openProfile: PropTypes.func.isRequired,
-  currentUser: PropTypes.string,
-  isAdmin: PropTypes.bool,
-  ADMIN_PANEL_ENABLED: PropTypes.bool,
-  pushNotif: PropTypes.func.isRequired,
-  handleLogout: PropTypes.func.isRequired,
-  setShowAdminPanel: PropTypes.func.isRequired,
-  // Note: other onboarding/profile props are passed from page but not used here intentionally.
-};

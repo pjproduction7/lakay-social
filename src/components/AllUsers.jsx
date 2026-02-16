@@ -1,5 +1,4 @@
 import React from 'react';
-import PropTypes from 'prop-types';
 
 export default function AllUsers({ allUsers, posts, currentUser, following, setFollowing, openProfile, setCurrentChatUser, setScreen, cardBg }) {
   return (
@@ -59,15 +58,3 @@ export default function AllUsers({ allUsers, posts, currentUser, following, setF
     </div>
   );
 }
-
-AllUsers.propTypes = {
-  allUsers: PropTypes.array.isRequired,
-  posts: PropTypes.array.isRequired,
-  currentUser: PropTypes.string,
-  following: PropTypes.object.isRequired,
-  setFollowing: PropTypes.func.isRequired,
-  openProfile: PropTypes.func.isRequired,
-  setCurrentChatUser: PropTypes.func.isRequired,
-  setScreen: PropTypes.func.isRequired,
-  cardBg: PropTypes.string,
-};

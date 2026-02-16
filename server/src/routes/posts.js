@@ -8,6 +8,17 @@ const router = Router();
 // Allow larger JSON payloads for posts that may include big imageUrl strings
 router.use(express.json({ limit: '1mb' }));
 
+// Helper function to check if user is admin
+async function checkIsAdmin(userId) {
+  try {
+    const result = await query("SELECT role FROM user_roles WHERE user_id = $1 AND role = 'admin'", [userId]);
+    return result.rowCount > 0;
+  } catch (err) {
+    console.error("Error checking admin status:", err);
+    return false;
+  }
+}
+
 
 const createPostSchema = z.object({
   content: z.string().min(1).max(10000), // Increased for long memorials
@@ -26,7 +37,7 @@ const commentSchema = z.object({
   content: z.string().min(1).max(1000),
 });
 
-async function fetchPosts({ ids, limit = 100 } = {}) {
+async function fetchPosts({ ids, limit = 100, user = null } = {}) {
   const hasIds = Array.isArray(ids) && ids.length > 0;
   const params = [];
   let postsQuery = `
@@ -39,6 +50,8 @@ async function fetchPosts({ ids, limit = 100 } = {}) {
       p.reaction_love,
       p.reaction_haha,
       p.reaction_fire,
+      p.approved,
+      p.post_type,
       p.created_at
     FROM posts p
   `;
@@ -46,6 +59,11 @@ async function fetchPosts({ ids, limit = 100 } = {}) {
   if (hasIds) {
     params.push(ids);
     postsQuery += `WHERE p.id = ANY($1::int[])`;
+  } else {
+    // For general feed, only show approved posts unless user is admin
+    if (!user || !user.isAdmin) {
+      postsQuery += `WHERE p.approved = true`;
+    }
   }
 
   postsQuery += ` ORDER BY p.created_at DESC`;
@@ -115,9 +133,10 @@ async function fetchPosts({ ids, limit = 100 } = {}) {
   }));
 }
 
-router.get("/", async (_req, res) => {
+router.get("/", requireAuth, async (req, res) => {
   try {
-    const posts = await fetchPosts();
+    const isAdmin = await checkIsAdmin(req.user.id);
+    const posts = await fetchPosts({ user: { isAdmin } });
     res.json(posts);
   } catch (err) {
     console.error(err);
@@ -135,12 +154,18 @@ router.post("/", requireAuth, async (req, res) => {
   }
 
   const { content, imageUrl = null } = parse.data;
+  
+  // Check if this is a memorial (content contains double newline indicating name/tribute format)
+  const isMemorial = content.includes('\n\n');
+  const postType = isMemorial ? 'memorial' : 'post';
+  const approved = isMemorial ? false : true;
+  
   try {
     const insert = await query(
-      `INSERT INTO posts (user_id, username, content, image_url)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO posts (user_id, username, content, image_url, post_type, approved)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id`,
-      [req.user.id, req.user.username, content, imageUrl]
+      [req.user.id, req.user.username, content, imageUrl, postType, approved]
     );
 
     const [post] = await fetchPosts({ ids: [insert.rows[0].id] });

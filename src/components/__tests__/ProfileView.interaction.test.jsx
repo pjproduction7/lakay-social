@@ -24,7 +24,6 @@ test('clicking Save Profile calls onSaveProfile', async () => {
       isUploadingPhotos={false}
       handleProfilePhotoUpload={() => {}}
       PHOTO_FILTERS={[]}
-      aiFiltersEnabled={false}
       selectedFilterStyle={'original'}
       setSelectedFilterStyle={() => {}}
       MAX_PROFILE_PHOTOS={5}
