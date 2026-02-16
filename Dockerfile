@@ -10,6 +10,11 @@ COPY package.json package-lock.json ./
 # Install dependencies (ensure devDependencies are installed for the build)
 RUN npm ci --include=dev --no-audit --progress=false
 
+# Fallback: explicitly install the Vite React plugin so production Docker builds
+# that (for any reason) miss devDeps still have the required plugin available.
+# We use --no-save so package.json / package-lock.json are not changed here.
+RUN npm install --no-audit --no-fund @vitejs/plugin-react --no-save
+
 # Copy the rest of the application code
 COPY . .
 
