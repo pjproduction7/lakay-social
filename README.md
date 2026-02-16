@@ -1,6 +1,18 @@
 # lakay-social
 A social platform built for the Haitian community, featuring chat rooms, opinions, voting, and community engagement.
 
+[![CI](https://github.com/pjproduction7/lakay-social/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pjproduction7/lakay-social/actions/workflows/ci.yml)
+
+## Requirements
+
+- Node.js >= 20 (development, build, and CI require Node 20 or newer). We run CI using Node 20 — use nvm or your preferred version manager to switch:
+
+```bash
+# with nvm
+nvm install 20
+nvm use 20
+```
+
 ## CI & Coverage Status
 
 - Coverage is uploaded to Codecov when `CODECOV_TOKEN` is configured in the repository secrets.
