@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Mocks
@@ -27,7 +27,7 @@ vi.mock('../../services/messages', () => ({
 }));
 
 vi.mock('../../services/feed', () => ({ fetchPosts: vi.fn().mockResolvedValue([]), createPost: vi.fn(), toggleLike: vi.fn(), reactToPost: vi.fn(), addComment: vi.fn() }));
-vi.mock('../../services/auth', () => ({ login: vi.fn(), signup: vi.fn(), logout: vi.fn(), getSession: vi.fn(), getAllUsers: vi.fn().mockResolvedValue(['bob']), getUser: vi.fn().mockResolvedValue({ username: 'alice', display_name: 'Alice' }), updateUserProfile: vi.fn() }));
+vi.mock('../../services/auth', () => ({ login: vi.fn(), signup: vi.fn(), logout: vi.fn(), getSession: vi.fn().mockReturnValue({ username: 'alice', token: 'tok' }), getAllUsers: vi.fn().mockResolvedValue(['bob']), getUser: vi.fn().mockResolvedValue({ username: 'alice', display_name: 'Alice' }), updateUserProfile: vi.fn() }));
 vi.mock('../../services/profilePhotos', () => ({ uploadProfilePhotos: vi.fn(), setPrimaryProfilePhoto: vi.fn(), deleteProfilePhoto: vi.fn() }));
 
 import HaitiSocialApp from '../HaitiSocialApp';
@@ -49,7 +49,8 @@ test('app-level: no duplicate when realtime arrives during send', async () => {
   await user.click(messagesNav);
 
   // Click Message button for 'bob' (AllUsers should be visible)
-  const msgBtn = await screen.findByText(/Message/i);
+  // target the "Send private message" label which uniquely identifies the user card
+  const msgBtn = await screen.findByText(/Send private message/i);
   await user.click(msgBtn);
 
   // Private chat input should appear
@@ -57,7 +58,8 @@ test('app-level: no duplicate when realtime arrives during send', async () => {
   await user.type(input, 'Ping');
 
   // Trigger send (this returns a promise we control)
-  const sendBtn = screen.getByRole('button', { name: /send/i }) || screen.getByRole('button');
+  const sendBtn = within(input.parentElement).getByRole('button');
+  expect(sendBtn).toBeInTheDocument();
   // Trigger send by pressing Enter
   const p = user.keyboard('{Enter}');
 

@@ -6,6 +6,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.js'],
     testTimeout: 10000,
+    // Exclude native/mobile tests (they use Jest/react-native and cause parse errors in Vite)
+    exclude: ['server/**', 'server/**/**', 'node_modules/**'],
   },
   coverage: {
     provider: 'c8',

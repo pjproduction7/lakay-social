@@ -3,16 +3,17 @@ import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { mergePrivateMessage } from '../../utils/privateMessages';
 
+let _sendResolvers = [];
 function TestComponent() {
   const [privateMessages, setPrivateMessages] = useState([]);
 
-  const sendPrivateMessage = (mapped, delay = 100) => {
-    // Simulates an HTTP request that resolves after a delay
+  const sendPrivateMessage = (mapped) => {
+    // Return a controllable promise — push resolver into shared array
     return new Promise((resolve) => {
-      setTimeout(() => {
-        setPrivateMessages((prev) => mergePrivateMessage(prev, mapped));
-        resolve(mapped);
-      }, delay);
+      _sendResolvers.push((result) => {
+        setPrivateMessages((prev) => mergePrivateMessage(prev, result));
+        resolve(result);
+      });
     });
   };
 
@@ -39,8 +40,7 @@ function TestComponent() {
 }
 
 test('no duplicate when realtime arrives during send', async () => {
-  vi.useFakeTimers();
-  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  const user = userEvent.setup();
 
   render(<TestComponent />);
 
@@ -53,12 +53,13 @@ test('no duplicate when realtime arrives during send', async () => {
   // While send is pending, receive the same message via realtime
   await user.click(receiveBtn);
 
-  // Fast-forward timers to resolve the send
-  act(() => { vi.runAllTimers(); });
+  // Resolve the pending HTTP send using the test-controlled resolver
+  act(() => {
+    const resolver = _sendResolvers.shift();
+    resolver({ id: 'abc', message: 'hello', from: 'bob', to: 'alice' });
+  });
 
   const items = await screen.findAllByRole('listitem');
   expect(items).toHaveLength(1);
   expect(items[0].textContent).toBe('hello');
-
-  vi.useRealTimers();
 });
