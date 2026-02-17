@@ -57,6 +57,10 @@ const corsOptions = process.env.NODE_ENV === 'production' ? {
   credentials: true
 };
 app.use(cors(corsOptions));
+// Add preflight CORS support for all routes
+if (process.env.NODE_ENV === 'production') {
+  app.options('*', cors(corsOptions));
+}
 
 // Rate limiting: 100 requests per 15 minutes per IP
 const limiter = rateLimit({
