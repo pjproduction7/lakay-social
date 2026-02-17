@@ -10,9 +10,9 @@ export default function useChatSocket({ currentUser, onPrivateMessage, onPresenc
     const baseUrl = getApiBaseUrl();
     // Debug: show which API base the client is using so we can debug websocket target
     console.log('useChatSocket: connecting socket to', baseUrl);
-    const socket = io(baseUrl, {
-      transports: ['websocket', 'polling'],
-    });
+    // Workaround: force polling on Railway-hosted API (avoids websocket upgrade issues behind some proxies).
+    const transports = baseUrl.includes('railway.app') ? ['polling'] : ['websocket', 'polling'];
+    const socket = io(baseUrl, { transports });
 
     socket.on('connect', () => {
       setIsConnected(true);

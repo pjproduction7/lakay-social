@@ -35,7 +35,20 @@ export function initRealtime(server) {
   });
   console.log('Realtime initialized (CORS: localhost allowed)');
 
+  // Log engine-level handshake/connection errors so production logs show why upgrades fail
+  try {
+    ioInstance.engine?.on('connection_error', (err) => {
+      console.error('Realtime engine connection_error:', err && err.message ? err.message : err);
+    });
+  } catch (e) {
+    console.error('Failed to attach engine connection_error listener', e);
+  }
+
   ioInstance.on("connection", (socket) => {
+    const origin = socket.handshake?.headers?.origin || 'unknown-origin';
+    const transport = socket.conn?.transport?.name || 'unknown-transport';
+    console.log(`Realtime socket connected id=${socket.id} transport=${transport} origin=${origin} ip=${socket.handshake.address || 'unknown'}`);
+
     socket.on("auth:identify", ({ username }) => {
       if (!username) {
         return;
@@ -49,7 +62,8 @@ export function initRealtime(server) {
       broadcastPresence();
     });
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", (reason) => {
+      console.log(`Realtime socket disconnected id=${socket.id} reason=${reason}`);
       if (socket.data.username) {
         userSockets.delete(socket.data.username);
         broadcastPresence();

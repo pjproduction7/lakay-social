@@ -127,6 +127,20 @@ app.use(function(err, _req, res, _next) {
 const server = http.createServer(app);
 initRealtime(server);
 
+// Diagnostic: log HTTP upgrade attempts (shows if proxy forwards websocket Upgrade/Connection headers)
+server.on('upgrade', (req, socket, head) => {
+  try {
+    console.log('HTTP upgrade request', {
+      upgrade: req.headers.upgrade,
+      host: req.headers.host,
+      origin: req.headers.origin,
+      url: req.url,
+    });
+  } catch (err) {
+    console.error('Error logging upgrade request', err);
+  }
+});
+
 server.listen(PORT, function() {
   console.log("?? Lakay API running on port " + PORT);
 });
