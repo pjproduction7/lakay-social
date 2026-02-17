@@ -40,7 +40,11 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
       - name: Install dependencies
-        run: npm ci
+        run: |
+          # Use reproducible `npm ci`; if optional native binaries fail to install
+          # (Rollup optional native package bug on some runners), fall back to
+          # installing without optional deps so CI can proceed.
+          npm ci || npm i --no-optional
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
       - name: Wait for Postgres
