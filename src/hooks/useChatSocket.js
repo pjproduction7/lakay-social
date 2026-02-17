@@ -10,8 +10,11 @@ export default function useChatSocket({ currentUser, onPrivateMessage, onPresenc
     const baseUrl = getApiBaseUrl();
     // Debug: show which API base the client is using so we can debug websocket target
     console.log('useChatSocket: connecting socket to', baseUrl);
-    // Workaround: force polling on Railway-hosted API (avoids websocket upgrade issues behind some proxies).
-    const transports = baseUrl.includes('railway.app') ? ['polling'] : ['websocket', 'polling'];
+    // Temporary: force polling for any non-localhost / production host while production WebSocket support is being restored.
+    // Use full websocket + polling only for localhost development to allow local websocket testing.
+    const isLocal = baseUrl.includes('localhost');
+    const transports = isLocal ? ['websocket', 'polling'] : ['polling'];
+    console.log('useChatSocket: transports configured ->', transports);
     const socket = io(baseUrl, { transports });
 
     socket.on('connect', () => {
