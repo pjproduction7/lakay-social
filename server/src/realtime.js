@@ -11,15 +11,26 @@ function getCorsOrigins() {
 export function initRealtime(server) {
   ioInstance = new Server(server, {
     cors: {
-      // Accept any localhost origin (useful for Vite dev which sometimes picks different ports)
+      // Allow localhost during development and explicit production domains
       origin: (origin, callback) => {
-        if (!origin || origin.startsWith('http://localhost')) {
-          callback(null, true);
-        } else {
-          // For production, you can validate against an allowlist
-          callback(null, false);
+        const allowed = [
+          'http://localhost:5173',
+          'http://localhost:5174',
+          'http://localhost:5175',
+          'https://lakaysocial.com',
+          'https://www.lakaysocial.com',
+          'https://lakay-social-production-361d.up.railway.app'
+        ];
+        if (!origin) {
+          // server-to-server or same-origin requests
+          return callback(null, true);
         }
+        if (origin.startsWith('http://localhost') || allowed.includes(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
       },
+      credentials: true,
     },
   });
   console.log('Realtime initialized (CORS: localhost allowed)');
