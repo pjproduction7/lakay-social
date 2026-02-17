@@ -1,0 +1,113 @@
+name: PR Coverage comment for forked PRs
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  comment-coverage-from-artifact:
+    runs-on: ubuntu-latest
+    # Only run this job when the PR comes from a fork (we handle in-repo PRs in pr-coverage.yml)
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    steps:
+      - name: Find the corresponding `pr-coverage` workflow run
+        id: find_run
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pr = context.payload.pull_request;
+            const headSha = pr.head.sha;
+            const workflowFile = 'pr-coverage.yml';
+
+            const runsResp = await github.rest.actions.listWorkflowRuns({ owner, repo, workflow_id: workflowFile, per_page: 50 });
+            const run = (runsResp.data.workflow_runs || []).find(r => r.head_sha === headSha && r.event === 'pull_request');
+            if (!run) {
+              core.info('No matching pr-coverage workflow run found for this PR head SHA.');
+              core.setOutput('found', 'false');
+              return;
+            }
+            core.setOutput('found', 'true');
+            core.setOutput('run_id', run.id);
+            core.setOutput('run_url', run.html_url);
+
+      - name: Locate coverage artifact for the run
+        id: get_artifact
+        if: steps.find_run.outputs.found == 'true'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const runId = parseInt(process.env.RUN_ID || '${{ steps.find_run.outputs.run_id }}', 10);
+
+            const artifactsResp = await github.rest.actions.listWorkflowRunArtifacts({ owner, repo, run_id: runId });
+            const artifacts = artifactsResp.data.artifacts || [];
+            if (!artifacts.length) {
+              core.info('No artifacts found for pr-coverage run.');
+              core.setOutput('artifact_found', 'false');
+              return;
+            }
+            // Prefer an artifact named 'coverage-report' or similar
+            const artifact = artifacts.find(a => ['coverage-report','coverage'].includes(a.name)) || artifacts[0];
+            core.setOutput('artifact_found', 'true');
+            core.setOutput('artifact_id', artifact.id);
+            const info = await github.rest.actions.getArtifact({ owner, repo, artifact_id: artifact.id });
+            core.setOutput('archive_url', info.data.archive_download_url);
+
+      - name: Download & extract coverage summary from artifact
+        if: steps.get_artifact.outputs.artifact_found == 'true'
+        env:
+          ARCHIVE_URL: ${{ steps.get_artifact.outputs.archive_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euxo pipefail
+          echo "Downloading artifact from $ARCHIVE_URL"
+          curl -sL -H "Authorization: token $GITHUB_TOKEN" "$ARCHIVE_URL" -o artifact.zip
+          mkdir -p artifact_tmp
+          unzip -q artifact.zip -d artifact_tmp || true
+          # Normalize path search for coverage-summary.json inside the artifact
+          COVERAGE_FILE=$(find artifact_tmp -type f -name 'coverage-summary.json' | head -n 1 || true)
+          if [ -n "$COVERAGE_FILE" ] && [ -s "$COVERAGE_FILE" ]; then
+            cp "$COVERAGE_FILE" ./coverage-summary.json
+            echo "coverage_found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "coverage_found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post coverage summary comment to PR (from artifact)
+        if: steps.get_artifact.outputs.artifact_found == 'true' && steps.get_artifact.outputs.artifact_found == 'true' && (steps.get_artifact.outputs.artifact_found == 'true' || steps.find_run.outputs.found == 'true')
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const prNumber = context.payload.pull_request.number;
+            const runUrl = '${{ steps.find_run.outputs.run_url }}';
+
+            if (fs.existsSync('coverage-summary.json')) {
+              const summary = JSON.parse(fs.readFileSync('coverage-summary.json', 'utf8')).total;
+              const body = `**Coverage summary** (from workflow run: ${runUrl})\n\n| Metric | % |\n|---|---:|\n| Statements | ${summary.statements.pct}% |\n| Branches | ${summary.branches.pct}% |\n| Functions | ${summary.functions.pct}% |\n| Lines | ${summary.lines.pct}% |\n\n`;
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
+            } else {
+              const body = `Coverage run completed — view the Actions run for details: ${runUrl} (artifact not available or could not be parsed).`;
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
+            }
+
+      - name: Fallback comment when no pr-coverage run found
+        if: steps.find_run.outputs.found == 'false'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const body = `Automated PR coverage comment: could not find a completed \'pr-coverage\' workflow run for this PR. The PR checks may still be running — check the Actions tab.`;
+            await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
