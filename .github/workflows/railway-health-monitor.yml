@@ -1,0 +1,89 @@
+name: Railway production health monitor
+
+on:
+  schedule:
+    # every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check production /health
+        id: check
+        run: |
+          set -euo pipefail
+          URL="https://lakay-social-production-361d.up.railway.app/health"
+          echo "Checking $URL"
+          STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL" || echo "000")
+          echo "status_code=$STATUS_CODE" >> "$GITHUB_OUTPUT"
+          if [ "$STATUS_CODE" -eq 200 ]; then
+            echo "healthy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "healthy=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Nothing to do when healthy
+        if: steps.check.outputs.healthy == 'true'
+        run: echo "Production healthy — exiting."
+
+      - name: Create/update GitHub issue (notify)
+        if: steps.check.outputs.healthy == 'false'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const title = '🚨 Production API is down — automated monitor';
+            const now = new Date().toISOString();
+            const body = `Automated health check failed for https://lakay-social-production-361d.up.railway.app/health at ${now}.\n\nThis workflow attempted an automated redeploy (empty commit push) and created/updated this issue so you can follow up.`;
+
+            // Look for an existing open issue with the same title
+            const issues = await github.rest.issues.listForRepo({ owner, repo, state: 'open', per_page: 100 });
+            const existing = issues.data.find(i => i.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body: `Health check still failing at ${now}. An automated redeploy attempt was made.` });
+              core.setOutput('issue_url', existing.html_url);
+            } else {
+              const created = await github.rest.issues.create({ owner, repo, title, body });
+              core.setOutput('issue_url', created.data.html_url);
+            }
+
+      - name: Checkout repo (required for redeploy push)
+        if: steps.check.outputs.healthy == 'false'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Trigger redeploy by pushing an empty commit to main
+        if: steps.check.outputs.healthy == 'false'
+        env:
+          TARGET_BRANCH: main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "Creating empty commit to trigger redeploy on $TARGET_BRANCH"
+          git checkout "$TARGET_BRANCH"
+          git commit --allow-empty -m "ci: trigger redeploy (automated health monitor)"
+          git push origin HEAD:"$TARGET_BRANCH"
+
+      - name: Optional: attempt Railway CLI redeploy (requires RAILWAY_API_KEY secret)
+        if: steps.check.outputs.healthy == 'false'
+        env:
+          RAILWAY_API_KEY: ${{ secrets.RAILWAY_API_KEY }}
+        run: |
+          if [ -z "${RAILWAY_API_KEY:-}" ]; then
+            echo "RAILWAY_API_KEY not provided — skipping railway CLI redeploy.";
+            exit 0;
+          fi
+          npm i -g @railway/cli@latest
+          echo "Logging into Railway CLI"
+          railway login --apiKey "$RAILWAY_API_KEY"
+          echo "Attempting 'railway up' to trigger a redeploy (may require linked project)"
+          railway up --yes || echo "railway up failed or requires manual intervention" 
