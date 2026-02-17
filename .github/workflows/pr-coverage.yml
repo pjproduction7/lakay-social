@@ -4,6 +4,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   pr-coverage:
     runs-on: ubuntu-latest
@@ -35,7 +39,11 @@ jobs:
           node-version: 20
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          # Prefer reproducible install; if that fails because of optional native
+          # binaries (Rollup optional native package issue), fall back to
+          # installing without optional deps so CI can proceed.
+          npm ci || npm i --no-optional
 
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
@@ -102,15 +110,26 @@ jobs:
             }
 
             const prNumber = context.payload.pull_request && context.payload.pull_request.number;
-            if (prNumber) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                body
-              });
-            } else {
+            if (!prNumber) {
               core.info('No pull request number available; skipping PR comment');
+            } else {
+              try {
+                // If PR originates from a fork, the runner cannot access secrets/write via GITHUB_TOKEN.
+                const prHeadFull = context.payload.pull_request.head?.repo?.full_name || '';
+                const repoFull = `${context.repo.owner}/${context.repo.repo}`;
+                if (prHeadFull && prHeadFull !== repoFull) {
+                  core.info('PR is from a fork; skipping comment to avoid permission errors.');
+                } else {
+                  await github.rest.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: prNumber,
+                    body
+                  });
+                }
+              } catch (err) {
+                core.info('Failed to post PR comment (non-fatal): ' + (err && err.message ? err.message : String(err)));
+              }
             }
       - name: Skip Codecov upload (no token)
         if: ${{ env.CODECOV_TOKEN == '' }}
