@@ -17,6 +17,7 @@ import subscriptionsRoutes from "./routes/subscriptions.js";
 import { query } from "./db.js";
 import { initRealtime } from "./realtime.js";
 
+
 dotenv.config();
 
 const app = express();
@@ -57,7 +58,22 @@ const corsOptions = process.env.NODE_ENV === 'production' ? {
   credentials: true
 };
 app.use(cors(corsOptions));
-// Add preflight CORS support for all routes
+// Fallback middleware: always set CORS headers for allowed origins (ensures headers on errors/404s)
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const allowed = Array.isArray(corsOptions.origin) ? corsOptions.origin : [];
+  if (origin && allowed.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Authorization,Content-Type');
+  }
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
+// Add preflight CORS support for all routes in production
 if (process.env.NODE_ENV === 'production') {
   app.options('*', cors(corsOptions));
   // Log CORS config for debugging
@@ -94,8 +110,19 @@ console.log('? Body parser limits set: json=1mb, urlencoded=1mb');
 
 // Serve uploads with CORS headers
 app.use('/uploads', (req, res, next) => {
-  // Allow cross-origin image fetching and CORS
-  res.header('Access-Control-Allow-Origin', 'http://localhost:5176');
+  const origin = req.headers.origin;
+  const allowed = [
+    'http://localhost:5176',
+    'https://lakaysocial.com',
+    'https://www.lakaysocial.com',
+    'https://lakay-social-production-361d.up.railway.app'
+  ];
+  if (origin && allowed.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    // default to allowing the main frontend host so images load in production
+    res.header('Access-Control-Allow-Origin', 'https://lakaysocial.com');
+  }
   res.header('Access-Control-Allow-Methods', 'GET');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   // Permit cross-origin resource policy for images so browser won't block them
@@ -110,6 +137,16 @@ app.use(express.static('public'));
 
 app.get("/health", function(_req, res) {
   res.json({ status: "ok", uptime: process.uptime() });
+});
+
+// Version endpoint for deployment verification
+app.get('/version', (_req, res) => {
+  try {
+    const pkg = JSON.parse(require('fs').readFileSync(new URL('../package.json', import.meta.url)));
+    return res.json({ version: pkg.version, commit: process.env.COMMIT_SHA || null });
+  } catch (err) {
+    return res.json({ version: null, commit: process.env.COMMIT_SHA || null });
+  }
 });
 
 app.use("/auth", authRoutes);
