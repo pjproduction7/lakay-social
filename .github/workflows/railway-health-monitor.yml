@@ -55,6 +55,43 @@ jobs:
               core.setOutput('issue_url', created.data.html_url);
             }
 
+      - name: Notify Slack (if configured)
+        if: steps.check.outputs.healthy == 'false'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
+            echo "SLACK_WEBHOOK_URL not set — skipping Slack notification.";
+            exit 0;
+          fi
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          TEXT="🚨 Production health check FAILED for https://lakay-social-production-361d.up.railway.app/health\nTime: ${NOW}\nAction run: ${RUN_URL}\nAn automated redeploy was attempted."
+          PAYLOAD=$(jq -n --arg text "$TEXT" '{text: $text}')
+          echo "Posting Slack notification..."
+          curl -s -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK_URL" || echo "Slack notify failed"
+
+      - name: Notify Microsoft Teams (if configured)
+        if: steps.check.outputs.healthy == 'false'
+        env:
+          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "${TEAMS_WEBHOOK_URL:-}" ]; then
+            echo "TEAMS_WEBHOOK_URL not set — skipping Teams notification.";
+            exit 0;
+          fi
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          # Simple message card supported by Incoming Webhook connector
+          read -r PAYLOAD <<'JSON'
+          {
+            "text": "\u26A0\uFE0F Production health check FAILED for https://lakay-social-production-361d.up.railway.app/health\nTime: %s\nAction run: %s\nAn automated redeploy was attempted."
+          }
+          JSON
+          PAYLOAD=$(printf "$PAYLOAD" "$NOW" "$RUN_URL")
+          echo "Posting Teams notification..."
+          curl -s -X POST -H 'Content-type: application/json' -d "$PAYLOAD" "$TEAMS_WEBHOOK_URL" || echo "Teams notify failed"
+
       - name: Checkout repo (required for redeploy push)
         if: steps.check.outputs.healthy == 'false'
         uses: actions/checkout@v4
