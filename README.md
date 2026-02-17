@@ -1,7 +1,7 @@
 # lakay-social
 A social platform built for the Haitian community, featuring chat rooms, opinions, voting, and community engagement.
 
-[![CI](https://github.com/pjproduction7/lakay-social/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pjproduction7/lakay-social/actions/workflows/ci.yml)
+[![CI](https://github.com/pjproduction7/lakay-social/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/pjproduction7/lakay-social/actions/workflows/ci.yml) [![PR Coverage](https://github.com/pjproduction7/lakay-social/actions/workflows/pr-coverage.yml/badge.svg?branch=main)](https://github.com/pjproduction7/lakay-social/actions/workflows/pr-coverage.yml) [![Health Monitor](https://github.com/pjproduction7/lakay-social/actions/workflows/railway-health-monitor.yml/badge.svg?branch=main)](https://github.com/pjproduction7/lakay-social/actions/workflows/railway-health-monitor.yml) [![codecov](https://codecov.io/gh/pjproduction7/lakay-social/branch/main/graph/badge.svg)](https://codecov.io/gh/pjproduction7/lakay-social)
 
 ## Requirements
 
@@ -26,4 +26,24 @@ nvm use 20
   ```
 
 - The CI also uploads an HTML coverage report artifact (`coverage/lcov-report`) after tests run; you can download it from the workflow run artifacts in GitHub Actions.
+
+## Enforcing PR Coverage (branch protection)
+
+To require the PR Coverage check to pass before merging into `main`:
+
+1. Go to the repository Settings → Branches → Add rule (or edit the `main` rule).
+2. Under "Protect matching branches" enable **Require status checks to pass before merging**.
+3. Search for and select the `PR Coverage` check (it appears as the workflow check name).
+4. Save the rule.
+
+Optional (CLI):
+
+- With the GitHub CLI and admin rights you can require the check with:
+
+  ```bash
+  gh api --method PATCH repos/:owner/:repo/branches/main/protection -f required_status_checks='{"strict":true,"contexts":["pr-coverage"]}'
+  ```
+
+This ensures pull requests cannot be merged unless the `PR Coverage` job passes.
+
 
