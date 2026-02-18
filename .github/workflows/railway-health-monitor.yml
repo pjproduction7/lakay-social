@@ -123,4 +123,4 @@ jobs:
           echo "Logging into Railway CLI"
           railway login --apiKey "$RAILWAY_API_KEY"
           echo "Attempting 'railway up' to trigger a redeploy (may require linked project)"
-          railway up --yes || echo "railway up failed or requires manual intervention" 
+          railway up --yes || echo "railway up failed or requires manual intervention"
