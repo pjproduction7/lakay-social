@@ -116,10 +116,10 @@ jobs:
       - name: Rebuild native modules
         run: npm rebuild rollup
 
-      - name: Optional: attempt Railway CLI redeploy (requires RAILWAY_API_KEY secret)
-        if: steps.check.outputs.healthy == 'false'
+      - name: Attempt Railway CLI redeploy
+        if: "steps.check.outputs.healthy == 'false'"
         env:
-          RAILWAY_API_KEY: ${{ secrets.RAILWAY_API_KEY }}
+          RAILWAY_API_KEY: "${{ secrets.RAILWAY_API_KEY }}"
         run: |
           if [ -z "${RAILWAY_API_KEY:-}" ]; then
             echo "RAILWAY_API_KEY not provided — skipping railway CLI redeploy.";
@@ -132,10 +132,16 @@ jobs:
           railway up --yes || echo "railway up failed or requires manual intervention"
 
       - name: Run tests with coverage
-        run: npm test -- --coverage
+        run: npm run test -- --coverage
 
-      - name: Upload coverage report
-        if: always()
+      - name: Verify coverage directory
+        run: |
+          if [ ! -d "coverage/lcov-report" ]; then
+            echo "Coverage directory not found! Ensure tests generate coverage reports.";
+            exit 1;
+          fi
+
+      - name: Upload coverage artifacts
         uses: actions/upload-artifact@v3
         with:
           name: coverage-report
