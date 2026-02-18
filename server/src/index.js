@@ -73,21 +73,26 @@ const helmetOptions = process.env.NODE_ENV === 'production' ? {
   }
 } : { contentSecurityPolicy: false };
 app.use(helmet(helmetOptions));
+const allowedOrigins = [
+  "https://lakaysocial.com",
+  "https://www.lakaysocial.com",
+  "https://lakay-social-production-361d.up.railway.app"
+];
 const corsOptions = process.env.NODE_ENV === 'production' ? {
-  origin: [
-    "https://lakaysocial.com",
-    "https://www.lakaysocial.com",
-    "https://lakay-social-production-361d.up.railway.app"
-  ],
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 } : {
   // Allow any localhost origin during development (Vite may pick different ports)
-  origin: (origin, callback) => {
+  origin: function(origin, callback) {
     if (!origin || origin.startsWith('http://localhost')) {
       return callback(null, true);
     }
-    const allowed = ["https://lakaysocial.com", "https://www.lakaysocial.com", "https://lakay-social-production-361d.up.railway.app"];
-    if (allowed.includes(origin)) {
+    if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
     callback(new Error('Not allowed by CORS'));
