@@ -17,13 +17,18 @@ import subscriptionsRoutes from "./routes/subscriptions.js";
 import { query } from "./db.js";
 import { initRealtime } from "./realtime.js";
 
-// Redis client setup
+// Redis client setup (optional)
 import { createClient } from 'redis';
-const redisClient = createClient({
-  url: process.env.REDIS_URL || 'redis://redis:6379'
-});
-redisClient.on('error', (err) => console.error('Redis Client Error', err));
-redisClient.connect().then(() => console.log('Connected to Redis'));
+let redisClient = null;
+if (process.env.REDIS_URL) {
+  redisClient = createClient({ url: process.env.REDIS_URL });
+  redisClient.on('error', (err) => console.error('Redis Client Error', err));
+  redisClient.connect()
+    .then(() => console.log('Connected to Redis'))
+    .catch((err) => console.error('Failed to connect to Redis:', err.message));
+} else {
+  console.warn('REDIS_URL not set. Redis will be disabled.');
+}
 
 // Docker secret usage example
 import fs from 'fs';
@@ -40,8 +45,11 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4001;
 
-// Example: Use Redis in a route
+// Example: Use Redis in a route (optional)
 app.get('/redis-test', async (req, res) => {
+  if (!redisClient) {
+    return res.status(503).json({ error: 'Redis not configured' });
+  }
   try {
     await redisClient.set('test-key', 'Hello from Redis!');
     const value = await redisClient.get('test-key');
