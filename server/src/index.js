@@ -101,27 +101,43 @@ const corsOptions = process.env.NODE_ENV === 'production' ? {
 };
 console.log('CORS config:', process.env.NODE_ENV, allowedOrigins);
 app.use(cors(corsOptions));
-// Fallback middleware: always set CORS headers for allowed origins (ensures headers on errors/404s)
+// Improved fallback CORS middleware: always set headers for allowed origins (including errors/404s)
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const allowed = Array.isArray(corsOptions.origin) ? corsOptions.origin : [];
-  if (origin && allowed.includes(origin)) {
+  // Use the same allowedOrigins array as main CORS config
+  const allowedOriginsSet = new Set([
+    "https://lakaysocial.com",
+    "https://www.lakaysocial.com",
+    "https://lakay-social-production-361d.up.railway.app"
+  ]);
+  if (origin && allowedOriginsSet.has(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Authorization,Content-Type');
   }
   if (req.method === 'OPTIONS') {
+    // Always respond to preflight with correct headers
     return res.status(204).end();
   }
   next();
 });
-// Add preflight CORS support for all routes in production
-if (process.env.NODE_ENV === 'production') {
-  app.options('*', cors(corsOptions));
-  // Log CORS config for debugging
-  console.log('CORS production origins:', corsOptions.origin);
-}
+// Add preflight CORS support for all routes
+app.options('*', (req, res) => {
+  const origin = req.headers.origin;
+  const allowedOriginsSet = new Set([
+    "https://lakaysocial.com",
+    "https://www.lakaysocial.com",
+    "https://lakay-social-production-361d.up.railway.app"
+  ]);
+  if (origin && allowedOriginsSet.has(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Authorization,Content-Type');
+  }
+  res.status(204).end();
+});
 
 // Rate limiting: 100 requests per 15 minutes per IP
 const limiter = rateLimit({
