@@ -130,3 +130,13 @@ jobs:
           railway login --apiKey "$RAILWAY_API_KEY"
           echo "Attempting 'railway up' to trigger a redeploy (may require linked project)"
           railway up --yes || echo "railway up failed or requires manual intervention"
+
+      - name: Run tests with coverage
+        run: npm test -- --coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: coverage/lcov-report
