@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node start.js",
-    "migrate": "node scripts/run-migrations.mjs"
+    "migrate": "node scripts/run-migrations.mjs",
+    "build": "echo 'No build step required'"
   },
   "dependencies": {
     "@huggingface/inference": "^4.13.10",
