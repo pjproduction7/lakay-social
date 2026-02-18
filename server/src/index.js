@@ -99,6 +99,7 @@ const corsOptions = process.env.NODE_ENV === 'production' ? {
   },
   credentials: true
 };
+console.log('CORS config:', process.env.NODE_ENV, allowedOrigins);
 app.use(cors(corsOptions));
 // Fallback middleware: always set CORS headers for allowed origins (ensures headers on errors/404s)
 app.use((req, res, next) => {
@@ -205,7 +206,17 @@ app.use(function(err, _req, res, _next) {
   res.status(500).json({ error: "Unexpected server error" });
 });
 
+
 const server = http.createServer(app);
+
+// If using socket.io, ensure CORS is set for it as well
+import { Server as IOServer } from "socket.io";
+const io = new IOServer(server, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true
+  }
+});
 initRealtime(server);
 
 // Diagnostic: log HTTP upgrade attempts (shows if proxy forwards websocket Upgrade/Connection headers)
