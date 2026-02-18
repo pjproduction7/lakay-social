@@ -17,11 +17,48 @@ import subscriptionsRoutes from "./routes/subscriptions.js";
 import { query } from "./db.js";
 import { initRealtime } from "./realtime.js";
 
+// Redis client setup
+import { createClient } from 'redis';
+const redisClient = createClient({
+  url: process.env.REDIS_URL || 'redis://redis:6379'
+});
+redisClient.on('error', (err) => console.error('Redis Client Error', err));
+redisClient.connect().then(() => console.log('Connected to Redis'));
+
+// Docker secret usage example
+import fs from 'fs';
+const secretPath = '/run/secrets/lakay_secret';
+let lakaySecret = null;
+if (fs.existsSync(secretPath)) {
+  lakaySecret = fs.readFileSync(secretPath, 'utf8').trim();
+  console.log('Loaded Docker secret: lakay_secret');
+}
+
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4001;
+
+// Example: Use Redis in a route
+app.get('/redis-test', async (req, res) => {
+  try {
+    await redisClient.set('test-key', 'Hello from Redis!');
+    const value = await redisClient.get('test-key');
+    res.json({ redisValue: value });
+  } catch (err) {
+    res.status(500).json({ error: 'Redis error', details: err.message });
+  }
+});
+
+// Example: Use Docker secret in a route
+app.get('/secret-test', (req, res) => {
+  if (lakaySecret) {
+    res.json({ secret: lakaySecret });
+  } else {
+    res.status(404).json({ error: 'Secret not found' });
+  }
+});
 
 const rawAdminUsername = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_USERNAME = rawAdminUsername.trim().toLowerCase();

@@ -14,6 +14,17 @@ services:
       - backend
     networks:
       - lakay-net
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - lakay-net
+
+secrets:
+  lakay_secret:
+    file: ./lakay_secret.txt
 
   backend:
     build:
@@ -28,10 +39,18 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=4001
-    depends_on:
+      - db
+      - redis
       - db
     command: sh -c "npm run migrate && npm start"
     networks:
+    secrets:
+      - lakay_secret
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
       - lakay-net
 
   db:
@@ -46,6 +65,11 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
       - lakay-net
 
 volumes:
