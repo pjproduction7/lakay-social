@@ -36,6 +36,7 @@ To require the PR Coverage check to pass before merging into `main`:
 3. Search for and select the `PR Coverage` check (it appears as the workflow check name).
 4. Save the rule.
 
+
 Optional (CLI):
 
 - With the GitHub CLI and admin rights you can require the check with:
