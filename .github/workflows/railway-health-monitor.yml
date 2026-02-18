@@ -110,6 +110,12 @@ jobs:
           git commit --allow-empty -m "ci: trigger redeploy (automated health monitor)"
           git push origin HEAD:"$TARGET_BRANCH"
 
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Rebuild native modules
+        run: npm rebuild rollup
+
       - name: Optional: attempt Railway CLI redeploy (requires RAILWAY_API_KEY secret)
         if: steps.check.outputs.healthy == 'false'
         env:
