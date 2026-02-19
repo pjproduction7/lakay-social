@@ -1109,7 +1109,8 @@ export default function HaitiSocialApp() {
       setLanguage(saved.language);
     }
     if (typeof saved.darkMode === "boolean") setDarkMode(saved.darkMode);
-    if (saved.policyAccepted) setPolicyAccepted(true);
+    // Do not auto-set policyAccepted from saved state; require explicit user action
+    // if (saved.policyAccepted) setPolicyAccepted(true);
     if (Array.isArray(saved.notifications)) setNotifications(saved.notifications);
     if (Array.isArray(saved.savedItems)) setSavedItems(saved.savedItems);
     if (Array.isArray(saved.messages)) setMessages(saved.messages);

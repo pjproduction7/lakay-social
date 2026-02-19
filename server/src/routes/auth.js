@@ -8,6 +8,7 @@ import rateLimit from "express-rate-limit";
 import { query } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import { sendEmail } from "../services/email.js";
+import { sendSMS } from "../services/sms.js";
 
 const router = Router();
 const { JWT_SECRET = "change-me" } = process.env;
@@ -59,6 +60,7 @@ router.post("/signup", authLimiter, async (req, res) => {
 
     const token = jwt.sign({ id: insert.rows[0].id, username }, JWT_SECRET, { expiresIn: "7d" });
     
+
     // Send email notification to admin
     try {
       await sendEmail({
@@ -69,7 +71,30 @@ router.post("/signup", authLimiter, async (req, res) => {
       });
     } catch (emailErr) {
       console.error("Failed to send registration email:", emailErr);
-      // Don't fail the signup if email fails
+    }
+
+    // Send welcome email to user
+    try {
+      await sendEmail({
+        to: email,
+        subject: "Welcome to Lakay Social!",
+        text: `Thank you for signing up, ${username}! Please be respectful and follow our community policy.`,
+        html: `<h2>Welcome to Lakay Social!</h2><p>Thank you for signing up, <b>${username}</b>!</p><p>Please be respectful and follow our <a href="https://lakay.social/policies">community policy</a>.</p>`
+      });
+    } catch (userEmailErr) {
+      console.error("Failed to send welcome email to user:", userEmailErr);
+    }
+
+    // Send SMS to user if phone number is provided and valid
+    if (req.body.phone) {
+      try {
+        await sendSMS({
+          to: req.body.phone,
+          body: `Welcome to Lakay Social, ${username}! Please be respectful and follow our community policy: https://lakay.social/policies`
+        });
+      } catch (smsErr) {
+        console.error("Failed to send SMS to user:", smsErr);
+      }
     }
     
     res.status(201).json({ user: insert.rows[0], token });
@@ -118,6 +143,30 @@ router.post("/login", authLimiter, async (req, res) => {
     // Set httpOnly cookies
     res.cookie('accessToken', accessToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 15 * 60 * 1000 });
     res.cookie('refreshToken', refreshToken, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 24 * 60 * 60 * 1000 });
+
+    // Send login notification email to user
+    try {
+      await sendEmail({
+        to: user.email,
+        subject: "Lakay Social Login Notification",
+        text: `Hi ${user.username}, you have just signed in to Lakay Social. If this wasn't you, please reset your password immediately.\n\nRemember to be respectful and follow our community policy: https://lakay.social/policies`,
+        html: `<p>Hi <b>${user.username}</b>, you have just signed in to Lakay Social.</p><p>If this wasn't you, please <a href='https://lakay.social/reset-password'>reset your password</a> immediately.</p><p>Remember to be respectful and follow our <a href='https://lakay.social/policies'>community policy</a>.</p>`
+      });
+    } catch (loginEmailErr) {
+      console.error("Failed to send login notification email to user:", loginEmailErr);
+    }
+
+    // Send SMS to user if phone number is available in DB (optional, if you store phone numbers)
+    if (user.phone) {
+      try {
+        await sendSMS({
+          to: user.phone,
+          body: `You have just signed in to Lakay Social. If this wasn't you, reset your password. Be respectful: https://lakay.social/policies`
+        });
+      } catch (smsErr) {
+        console.error("Failed to send login SMS to user:", smsErr);
+      }
+    }
     
     res.json({ 
       accessToken, 

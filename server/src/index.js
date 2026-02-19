@@ -43,6 +43,11 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4001;
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', env: process.env.NODE_ENV || 'development', uptime: Math.round(process.uptime()) });
+});
+
 // Example: Use Redis in a route (optional)
 app.get('/redis-test', async (req, res) => {
   if (!redisClient) {
@@ -86,21 +91,28 @@ const allowedOrigins = [
 ];
 const corsOptions = process.env.NODE_ENV === 'production' ? {
   origin: function(origin, callback) {
+    console.log('[CORS] Production branch. Origin:', origin);
     if (!origin || allowedOrigins.includes(origin)) {
+      console.log('[CORS] Allowed origin (production):', origin);
       return callback(null, true);
     }
+    console.log('[CORS] Blocked origin (production):', origin);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true
 } : {
   // Allow any localhost origin during development (Vite may pick different ports)
   origin: function(origin, callback) {
+    console.log('[CORS] Development branch. Origin:', origin);
     if (!origin || origin.startsWith('http://localhost')) {
+      console.log('[CORS] Allowed origin (dev, localhost):', origin);
       return callback(null, true);
     }
     if (allowedOrigins.includes(origin)) {
+      console.log('[CORS] Allowed origin (dev, allowedOrigins):', origin);
       return callback(null, true);
     }
+    console.log('[CORS] Blocked origin (dev):', origin);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true
