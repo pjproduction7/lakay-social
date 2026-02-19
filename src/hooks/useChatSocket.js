@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { getApiBaseUrl } from '../services/api.js';
 
-export default function useChatSocket({ currentUser, onPrivateMessage, onPresenceUpdate }) {
+export default function useChatSocket({ currentUser, onPrivateMessage, onPresenceUpdate, onPublicMessage }) {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef(null);
 
@@ -40,12 +40,21 @@ export default function useChatSocket({ currentUser, onPrivateMessage, onPresenc
       }
     });
 
+    // Listen for public chat messages from server
+    socket.on('chat:public:new', (message) => {
+      if (onPublicMessage) onPublicMessage(message);
+    });
+    // Backwards-compatible: also listen for the raw 'new_message' event
+    socket.on('new_message', (message) => {
+      if (onPublicMessage) onPublicMessage(message);
+    });
+
     socketRef.current = socket;
 
     return () => {
       socket.disconnect();
     };
-  }, [currentUser, onPrivateMessage, onPresenceUpdate]);
+  }, [currentUser, onPrivateMessage, onPresenceUpdate, onPublicMessage]);
 
   const connect = useCallback((username) => {
     if (socketRef.current && username) {
@@ -65,8 +74,16 @@ export default function useChatSocket({ currentUser, onPrivateMessage, onPresenc
     }
   }, []);
 
+  // New: send a public chat message to a room
+  const sendPublicMessage = useCallback((room, content) => {
+    if (socketRef.current) {
+      socketRef.current.emit('send_message', { room, content });
+    }
+  }, []);
+
   return {
     sendMessage,
+    sendPublicMessage,
     connect,
     disconnect,
     isConnected,

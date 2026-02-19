@@ -71,6 +71,8 @@ export function initSocket(httpServer, allowedOrigins) {
       }
 
       io.to(room).emit('new_message', message);
+      // Also emit the canonical realtime event used elsewhere in the app
+      io.emit('chat:public:new', message);
     });
 
     // Private message

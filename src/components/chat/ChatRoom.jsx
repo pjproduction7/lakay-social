@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import PropTypes from 'prop-types';
+import useChatSocket from '../../hooks/useChatSocket';
 
 export default function ChatRoom({ currentUser, isAdmin }) {
   const [room, setRoom] = useState("Haiti");
@@ -10,6 +11,16 @@ export default function ChatRoom({ currentUser, isAdmin }) {
   });
   const [input, setInput] = useState("");
   const messagesEndRef = useRef(null);
+
+  const { sendPublicMessage } = useChatSocket({ currentUser, onPublicMessage: (msg) => {
+    // msg may come from server with fields: username, content, room, timestamp
+    const roomName = msg.room || 'Haiti';
+    const sender = msg.username || msg.user || msg.sender || 'Guest';
+    const text = msg.content || msg.text || msg.message || '';
+    const timestamp = msg.created_at ? new Date(msg.created_at).getTime() : (msg.timestamp ? new Date(msg.timestamp).getTime() : Date.now());
+    const newMsg = { user: sender, text, timestamp };
+    setMessages(prev => ({ ...prev, [roomName]: [...(prev[roomName] || []), newMsg] }));
+  } });
 
   useEffect(() => {
     const saved = localStorage.getItem('chatroom_messages');
@@ -40,11 +51,20 @@ export default function ChatRoom({ currentUser, isAdmin }) {
       text: input,
       timestamp: Date.now()
     };
-    
+
+    // optimistic UI update
     setMessages((prev) => ({
       ...prev,
       [room]: [...(prev[room] || []), newMsg],
     }));
+
+    // Emit via socket (server will persist if the user is authenticated)
+    try {
+      sendPublicMessage(room, input.trim());
+    } catch (e) {
+      console.error('Failed to send public message over socket', e?.message || e);
+    }
+
     setInput("");
   };
 
