@@ -257,6 +257,17 @@ server.on('upgrade', (req, socket, head) => {
   }
 });
 
+// Initialize Socket.IO (services/socket.js) and attach realtime handlers
+import { initSocket } from './services/socket.js';
+import { initRealtime } from './realtime.js';
+try {
+  const io = initSocket(server, allowedOrigins);
+  initRealtime(io);
+  console.log('? Socket.IO initialized');
+} catch (err) {
+  console.error('Failed to initialize Socket.IO:', err && err.message ? err.message : err);
+}
+
 server.listen(PORT, function() {
   console.log("?? Lakay API running on port " + PORT);
 });
