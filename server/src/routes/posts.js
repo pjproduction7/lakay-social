@@ -2,7 +2,7 @@ import { Router } from "express";
 import express from "express";
 import { z } from "zod";
 import { query } from "../db.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, optionalAuth } from "../middleware/auth.js";
 
 const router = Router();
 // Allow larger JSON payloads for posts that may include big imageUrl strings
