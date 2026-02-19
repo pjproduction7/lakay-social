@@ -15,8 +15,6 @@ import notificationsRoutes from "./routes/notifications.js";
 import pushRoutes from "./routes/push.js";
 import subscriptionsRoutes from "./routes/subscriptions.js";
 import { query } from "./db.js";
-import { initRealtime } from "./realtime.js";
-
 // Redis client setup (optional)
 import { createClient } from 'redis';
 let redisClient = null;
@@ -232,16 +230,6 @@ app.use(function(err, _req, res, _next) {
 
 
 const server = http.createServer(app);
-
-// If using socket.io, ensure CORS is set for it as well
-import { Server as IOServer } from "socket.io";
-const io = new IOServer(server, {
-  cors: {
-    origin: allowedOrigins,
-    credentials: true
-  }
-});
-initRealtime(server);
 
 // Diagnostic: log HTTP upgrade attempts (shows if proxy forwards websocket Upgrade/Connection headers)
 server.on('upgrade', (req, socket, head) => {
