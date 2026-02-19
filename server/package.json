@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node start.js",
+    "start": "node src/index.js",
     "migrate": "node scripts/run-migrations.mjs",
     "build": "echo 'No build step required'"
   },

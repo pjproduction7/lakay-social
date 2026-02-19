@@ -16,5 +16,5 @@ COPY . .
 # Expose the port your server listens on
 EXPOSE 4001
 
-# Start the server (using correct path from repo root)
-CMD ["node", "server/start.js"]
+# Start the server using the actual entrypoint in this repo
+CMD ["node", "server/src/index.js"]
