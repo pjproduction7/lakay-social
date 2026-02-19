@@ -8,7 +8,12 @@ export function initSocket(httpServer, allowedOrigins) {
   const io = new Server(httpServer, {
     cors: {
       origin: function(origin, callback) {
-        if (!origin || (Array.isArray(allowedOrigins) && allowedOrigins.includes(origin))) {
+        // Allow server-to-server (no-origin) requests
+        if (!origin) return callback(null, true);
+        // If caller passed `true` for allowedOrigins, permit everything
+        if (allowedOrigins === true) return callback(null, true);
+        // Otherwise require the origin to be present in the allowlist
+        if (Array.isArray(allowedOrigins) && allowedOrigins.includes(origin)) {
           return callback(null, true);
         }
         return callback(new Error('Not allowed by CORS'));

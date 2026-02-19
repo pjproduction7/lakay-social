@@ -84,40 +84,54 @@ const helmetOptions = process.env.NODE_ENV === 'production' ? {
   }
 } : { contentSecurityPolicy: false };
 app.use(helmet(helmetOptions));
+
+// Optional: enable permissive CORS for quick debugging in production by setting
+// ENABLE_PERMISSIVE_CORS=true (DO NOT leave enabled in production long-term).
+const PERMISSIVE_CORS = process.env.ENABLE_PERMISSIVE_CORS === 'true';
+
 const allowedOrigins = [
   "https://lakaysocial.com",
   "https://www.lakaysocial.com",
   "https://lakay-social-production-361d.up.railway.app"
 ];
-const corsOptions = process.env.NODE_ENV === 'production' ? {
-  origin: function(origin, callback) {
-    console.log('[CORS] Production branch. Origin:', origin);
-    if (!origin || allowedOrigins.includes(origin)) {
-      console.log('[CORS] Allowed origin (production):', origin);
-      return callback(null, true);
-    }
-    console.log('[CORS] Blocked origin (production):', origin);
-    callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true
-} : {
+
+let corsOptions;
+if (PERMISSIVE_CORS) {
+  console.log('[CORS] PERMISSIVE mode enabled — allowing all origins (temporary debug)');
+  corsOptions = { origin: true, credentials: true };
+} else if (process.env.NODE_ENV === 'production') {
+  corsOptions = {
+    origin: function(origin, callback) {
+      console.log('[CORS] Production branch. Origin:', origin);
+      if (!origin || allowedOrigins.includes(origin)) {
+        console.log('[CORS] Allowed origin (production):', origin);
+        return callback(null, true);
+      }
+      console.log('[CORS] Blocked origin (production):', origin);
+      callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true
+  };
+} else {
   // Allow any localhost origin during development (Vite may pick different ports)
-  origin: function(origin, callback) {
-    console.log('[CORS] Development branch. Origin:', origin);
-    if (!origin || origin.startsWith('http://localhost')) {
-      console.log('[CORS] Allowed origin (dev, localhost):', origin);
-      return callback(null, true);
-    }
-    if (allowedOrigins.includes(origin)) {
-      console.log('[CORS] Allowed origin (dev, allowedOrigins):', origin);
-      return callback(null, true);
-    }
-    console.log('[CORS] Blocked origin (dev):', origin);
-    callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true
-};
-console.log('CORS config:', process.env.NODE_ENV, allowedOrigins);
+  corsOptions = {
+    origin: function(origin, callback) {
+      console.log('[CORS] Development branch. Origin:', origin);
+      if (!origin || origin.startsWith('http://localhost')) {
+        console.log('[CORS] Allowed origin (dev, localhost):', origin);
+        return callback(null, true);
+      }
+      if (allowedOrigins.includes(origin)) {
+        console.log('[CORS] Allowed origin (dev, allowedOrigins):', origin);
+        return callback(null, true);
+      }
+      console.log('[CORS] Blocked origin (dev):', origin);
+      callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true
+  };
+}
+console.log('CORS config:', process.env.NODE_ENV, allowedOrigins, 'permissive=', PERMISSIVE_CORS);
 app.use(cors(corsOptions));
 // Improved fallback CORS middleware: always set headers for allowed origins (including errors/404s)
 app.use((req, res, next) => {
@@ -128,7 +142,14 @@ app.use((req, res, next) => {
     "https://www.lakaysocial.com",
     "https://lakay-social-production-361d.up.railway.app"
   ]);
-  if (origin && allowedOriginsSet.has(origin)) {
+
+  if (PERMISSIVE_CORS) {
+    // Reflect the request origin (or allow all) while permissive mode is enabled
+    res.header('Access-Control-Allow-Origin', origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Authorization,Content-Type');
+  } else if (origin && allowedOriginsSet.has(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
@@ -148,7 +169,13 @@ app.options('*', (req, res) => {
     "https://www.lakaysocial.com",
     "https://lakay-social-production-361d.up.railway.app"
   ]);
-  if (origin && allowedOriginsSet.has(origin)) {
+
+  if (PERMISSIVE_CORS) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Authorization,Content-Type');
+  } else if (origin && allowedOriginsSet.has(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
