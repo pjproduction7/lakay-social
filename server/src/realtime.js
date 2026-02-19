@@ -1,39 +1,11 @@
-import { Server } from "socket.io";
 
 const userSockets = new Map();
 let ioInstance = null;
 
-function getCorsOrigins() {
-  // Allow local dev ports dynamically during development
-  return ["http://localhost:5173", "http://localhost:5174", "http://localhost:5175"];
-}
+export function initRealtime(io) {
+  ioInstance = io;
+  console.log('Realtime initialized (using provided io instance)');
 
-export function initRealtime(server) {
-  ioInstance = new Server(server, {
-    cors: {
-      // Allow localhost during development and explicit production domains
-      origin: (origin, callback) => {
-        const allowed = [
-          'http://localhost:5173',
-          'http://localhost:5174',
-          'http://localhost:5175',
-          'https://lakaysocial.com',
-          'https://www.lakaysocial.com',
-          'https://lakay-social-production-361d.up.railway.app'
-        ];
-        if (!origin) {
-          // server-to-server or same-origin requests
-          return callback(null, true);
-        }
-        if (origin.startsWith('http://localhost') || allowed.includes(origin)) {
-          return callback(null, true);
-        }
-        return callback(new Error('Not allowed by CORS'));
-      },
-      credentials: true,
-    },
-  });
-  console.log('Realtime initialized (CORS: localhost allowed)');
 
   // Log engine-level handshake/connection errors so production logs show why upgrades fail
   try {

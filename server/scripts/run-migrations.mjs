@@ -17,7 +17,7 @@ async function getApplied() {
   return new Set(res.rows.map(r => r.name));
 }
 
-async function run() {
+export async function run() {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
   const migrationsDir = path.resolve(__dirname, '../sql/migrations');
@@ -51,7 +51,11 @@ async function run() {
   console.log('All migrations processed.');
 }
 
-run().catch((err) => {
-  console.error('Migration runner failed:', err);
-  process.exit(1);
-});
+// If script is executed directly, run immediately. Otherwise other modules can import { run }.
+const __filename = fileURLToPath(import.meta.url);
+if (process.argv[1] === __filename) {
+  run().catch((err) => {
+    console.error('Migration runner failed:', err);
+    process.exit(1);
+  });
+}

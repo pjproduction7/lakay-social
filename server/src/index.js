@@ -15,12 +15,61 @@ import notificationsRoutes from "./routes/notifications.js";
 import pushRoutes from "./routes/push.js";
 import subscriptionsRoutes from "./routes/subscriptions.js";
 import { query } from "./db.js";
-import { initRealtime } from "./realtime.js";
+// Redis client setup (optional)
+import { createClient } from 'redis';
+let redisClient = null;
+if (process.env.REDIS_URL) {
+  redisClient = createClient({ url: process.env.REDIS_URL });
+  redisClient.on('error', (err) => console.error('Redis Client Error', err));
+  redisClient.connect()
+    .then(() => console.log('Connected to Redis'))
+    .catch((err) => console.error('Failed to connect to Redis:', err.message));
+} else {
+  console.warn('REDIS_URL not set. Redis will be disabled.');
+}
+
+// Docker secret usage example
+import fs from 'fs';
+const secretPath = '/run/secrets/lakay_secret';
+let lakaySecret = null;
+if (fs.existsSync(secretPath)) {
+  lakaySecret = fs.readFileSync(secretPath, 'utf8').trim();
+  console.log('Loaded Docker secret: lakay_secret');
+}
+
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4001;
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok', env: process.env.NODE_ENV || 'development', uptime: Math.round(process.uptime()) });
+});
+
+// Example: Use Redis in a route (optional)
+app.get('/redis-test', async (req, res) => {
+  if (!redisClient) {
+    return res.status(503).json({ error: 'Redis not configured' });
+  }
+  try {
+    await redisClient.set('test-key', 'Hello from Redis!');
+    const value = await redisClient.get('test-key');
+    res.json({ redisValue: value });
+  } catch (err) {
+    res.status(500).json({ error: 'Redis error', details: err.message });
+  }
+});
+
+// Example: Use Docker secret in a route
+app.get('/secret-test', (req, res) => {
+  if (lakaySecret) {
+    res.json({ secret: lakaySecret });
+  } else {
+    res.status(404).json({ error: 'Secret not found' });
+  }
+});
 
 const rawAdminUsername = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_USERNAME = rawAdminUsername.trim().toLowerCase();
@@ -35,32 +84,78 @@ const helmetOptions = process.env.NODE_ENV === 'production' ? {
   }
 } : { contentSecurityPolicy: false };
 app.use(helmet(helmetOptions));
+const allowedOrigins = [
+  "https://lakaysocial.com",
+  "https://www.lakaysocial.com",
+  "https://lakay-social-production-361d.up.railway.app"
+];
 const corsOptions = process.env.NODE_ENV === 'production' ? {
-  origin: [
-    "https://lakaysocial.com",
-    "https://www.lakaysocial.com",
-    "https://lakay-social-production-361d.up.railway.app"
-  ],
+  origin: function(origin, callback) {
+    console.log('[CORS] Production branch. Origin:', origin);
+    if (!origin || allowedOrigins.includes(origin)) {
+      console.log('[CORS] Allowed origin (production):', origin);
+      return callback(null, true);
+    }
+    console.log('[CORS] Blocked origin (production):', origin);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 } : {
   // Allow any localhost origin during development (Vite may pick different ports)
-  origin: (origin, callback) => {
+  origin: function(origin, callback) {
+    console.log('[CORS] Development branch. Origin:', origin);
     if (!origin || origin.startsWith('http://localhost')) {
+      console.log('[CORS] Allowed origin (dev, localhost):', origin);
       return callback(null, true);
     }
-    const allowed = ["https://lakaysocial.com", "https://www.lakaysocial.com", "https://lakay-social-production-361d.up.railway.app"];
-    if (allowed.includes(origin)) {
+    if (allowedOrigins.includes(origin)) {
+      console.log('[CORS] Allowed origin (dev, allowedOrigins):', origin);
       return callback(null, true);
     }
+    console.log('[CORS] Blocked origin (dev):', origin);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true
 };
+console.log('CORS config:', process.env.NODE_ENV, allowedOrigins);
 app.use(cors(corsOptions));
+// Improved fallback CORS middleware: always set headers for allowed origins (including errors/404s)
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  // Use the same allowedOrigins array as main CORS config
+  const allowedOriginsSet = new Set([
+    "https://lakaysocial.com",
+    "https://www.lakaysocial.com",
+    "https://lakay-social-production-361d.up.railway.app"
+  ]);
+  if (origin && allowedOriginsSet.has(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Authorization,Content-Type');
+  }
+  if (req.method === 'OPTIONS') {
+    // Always respond to preflight with correct headers
+    return res.status(204).end();
+  }
+  next();
+});
 // Add preflight CORS support for all routes
-if (process.env.NODE_ENV === 'production') {
-  app.options('*', cors(corsOptions));
-}
+app.options('*', (req, res) => {
+  const origin = req.headers.origin;
+  const allowedOriginsSet = new Set([
+    "https://lakaysocial.com",
+    "https://www.lakaysocial.com",
+    "https://lakay-social-production-361d.up.railway.app"
+  ]);
+  if (origin && allowedOriginsSet.has(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Authorization,Content-Type');
+  }
+  res.status(204).end();
+});
 
 // Rate limiting: 100 requests per 15 minutes per IP
 const limiter = rateLimit({
@@ -92,8 +187,19 @@ console.log('? Body parser limits set: json=1mb, urlencoded=1mb');
 
 // Serve uploads with CORS headers
 app.use('/uploads', (req, res, next) => {
-  // Allow cross-origin image fetching and CORS
-  res.header('Access-Control-Allow-Origin', 'http://localhost:5176');
+  const origin = req.headers.origin;
+  const allowed = [
+    'http://localhost:5176',
+    'https://lakaysocial.com',
+    'https://www.lakaysocial.com',
+    'https://lakay-social-production-361d.up.railway.app'
+  ];
+  if (origin && allowed.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    // default to allowing the main frontend host so images load in production
+    res.header('Access-Control-Allow-Origin', 'https://lakaysocial.com');
+  }
   res.header('Access-Control-Allow-Methods', 'GET');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   // Permit cross-origin resource policy for images so browser won't block them
@@ -110,6 +216,16 @@ app.get("/health", function(_req, res) {
   res.json({ status: "ok", uptime: process.uptime() });
 });
 
+// Version endpoint for deployment verification
+app.get('/version', (_req, res) => {
+  try {
+    const pkg = JSON.parse(require('fs').readFileSync(new URL('../package.json', import.meta.url)));
+    return res.json({ version: pkg.version, commit: process.env.COMMIT_SHA || null });
+  } catch (err) {
+    return res.json({ version: null, commit: process.env.COMMIT_SHA || null });
+  }
+});
+
 app.use("/auth", authRoutes);
 app.use("/profiles", profileRoutes);
 app.use("/messages", messageRoutes);
@@ -124,8 +240,8 @@ app.use(function(err, _req, res, _next) {
   res.status(500).json({ error: "Unexpected server error" });
 });
 
+
 const server = http.createServer(app);
-initRealtime(server);
 
 // Diagnostic: log HTTP upgrade attempts (shows if proxy forwards websocket Upgrade/Connection headers)
 server.on('upgrade', (req, socket, head) => {
@@ -141,9 +257,33 @@ server.on('upgrade', (req, socket, head) => {
   }
 });
 
-server.listen(PORT, function() {
-  console.log("?? Lakay API running on port " + PORT);
-});
+// Initialize Socket.IO (services/socket.js) and attach realtime handlers
+import { initSocket } from './services/socket.js';
+import { initRealtime } from './realtime.js';
+try {
+  const io = initSocket(server, allowedOrigins);
+  initRealtime(io);
+  console.log('? Socket.IO initialized');
+} catch (err) {
+  console.error('Failed to initialize Socket.IO:', err && err.message ? err.message : err);
+}
+
+(async function startServer() {
+  try {
+    // Run DB migrations on startup (safe / idempotent)
+    const migrations = await import('../scripts/run-migrations.mjs');
+    console.log('? Running DB migrations on startup');
+    await migrations.run();
+    console.log('? DB migrations completed');
+  } catch (err) {
+    console.error('Warning: migrations failed or skipped on startup:', err && err.message ? err.message : err);
+    // Do not crash the entire server for migration issues — deployment can still be healthy.
+  }
+
+  server.listen(PORT, function() {
+    console.log("?? Lakay API running on port " + PORT);
+  });
+})();
 
 async function ensureAdminUser() {
   var normalizedUsername = ADMIN_USERNAME.trim().toLowerCase();

@@ -26,11 +26,11 @@ router.post('/public', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Message content is required' });
     }
     const result = await query(
-      'INSERT INTO messages (sender, content, type) VALUES (, , \'public\') RETURNING id, sender, content, created_at',
+      'INSERT INTO messages (sender, content, type) VALUES ($1, $2, \'public\') RETURNING id, sender as username, content, created_at',
       [req.user.username, content.trim()]
     );
     const message = result.rows[0];
-    emitPublicChatMessage(message);
+    emitPublicChatMessage({ id: message.id, sender: message.username, content: message.content, created_at: message.created_at });
     res.status(201).json(message);
   } catch (err) {
     console.error(err);

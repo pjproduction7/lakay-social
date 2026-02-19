@@ -3,9 +3,12 @@
   "private": true,
   "version": "1.0.1",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node start.js",
+    "postinstall": "npm --prefix server ci",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
@@ -17,8 +20,8 @@
     "smoke": "node scripts/smoke.js"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "^5.1.4",
     "@vercel/speed-insights": "^1.3.1",
+    "@vitejs/plugin-react": "^5.1.4",
     "axios": "^1.13.4",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.9.0",
@@ -35,6 +38,7 @@
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.0",
     "socket.io-client": "^4.7.5",
+    "twilio": "^5.12.2",
     "web-push": "^3.6.7"
   },
   "devDependencies": {

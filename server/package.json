@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
-    "migrate": "node scripts/run-migrations.mjs"
+    "migrate": "node scripts/run-migrations.mjs",
+    "build": "echo 'No build step required'"
   },
   "dependencies": {
     "@huggingface/inference": "^4.13.10",
@@ -15,15 +16,16 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "express": "^4.19.2",
+    "express": "^4.22.1",
     "express-rate-limit": "^8.2.1",
     "helmet": "^7.1.0",
-    "jsonwebtoken": "^9.0.2",
+    "jsonwebtoken": "^9.0.3",
     "multer": "^2.0.2",
     "nodemailer": "^8.0.1",
     "pg": "^8.11.3",
     "qrcode": "^1.5.4",
-    "socket.io": "^4.7.5",
+    "redis": "^5.11.0",
+    "socket.io": "^4.8.3",
     "speakeasy": "^2.0.0",
     "validator": "^13.15.26",
     "web-push": "^3.6.7",
