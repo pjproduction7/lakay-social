@@ -5,7 +5,7 @@ export default function PolicyPopup({ onAccept, onGuestFeed, onGuestMemorials })
   return (
     <div style={styles.overlay}>
       <div style={styles.box}>
-        <h2>Welcome to LakaySocial</h2>
+        <h2 style={styles.title}>Welcome to LakaySocial</h2>
 
         <p style={styles.text}>
           By continuing, you agree to treat others with respect.
@@ -61,42 +61,64 @@ const styles = {
     left: 0,
     height: "100%",
     width: "100%",
-    background: "rgba(0,0,0,0.6)",
+    background: "linear-gradient(135deg, rgba(2,6,23,0.85), rgba(12,6,35,0.85))",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     zIndex: 9999,
+    backdropFilter: "blur(6px)",
   },
   box: {
-    background: "white",
-    padding: "25px",
-    borderRadius: "15px",
-    maxWidth: "450px",
+    background: "linear-gradient(135deg, #0f172a, #0b1220)",
+    padding: "28px",
+    borderRadius: "16px",
+    maxWidth: "520px",
     textAlign: "center",
+    boxShadow: "0 10px 30px rgba(2,6,23,0.6)",
+    border: "1px solid rgba(255,255,255,0.04)",
+    color: '#e6eef8'
+  },
+  title: {
+    margin: 0,
+    fontSize: "26px",
+    fontWeight: 800,
+    letterSpacing: '0.6px',
+    background: 'linear-gradient(90deg, #ff4d4d, #3b82f6)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent'
   },
   text: {
     marginTop: "10px",
     fontSize: "15px",
+    color: '#cbd5e1'
   },
   rules: {
     marginTop: "15px",
     fontWeight: "bold",
-    color: "darkred",
+    color: "#ff6b6b",
   },
   ladder: {
     marginTop: "15px",
     fontSize: "14px",
+    color: '#94a3b8'
   },
   links: {
     marginTop: "10px",
     fontSize: "13px",
+    color: '#9fb0ff'
   },
   button: {
     marginTop: "20px",
-    padding: "10px 20px",
+    padding: "10px 22px",
     border: "none",
-    borderRadius: "10px",
+    borderRadius: "12px",
     fontSize: "16px",
     cursor: "pointer",
+    background: "linear-gradient(90deg,#ef4444,#3b82f6)",
+    color: "white",
+    fontWeight: 700,
+    boxShadow: "0 6px 18px rgba(59,130,246,0.25)",
+    transition: 'transform 120ms ease, box-shadow 120ms ease'
   },
 };
