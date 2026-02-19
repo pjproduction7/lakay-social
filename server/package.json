@@ -24,6 +24,7 @@
     "nodemailer": "^8.0.1",
     "pg": "^8.11.3",
     "qrcode": "^1.5.4",
+    "redis": "^5.11.0",
     "socket.io": "^4.7.5",
     "speakeasy": "^2.0.0",
     "validator": "^13.15.26",
