@@ -7,7 +7,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
 export function initSocket(httpServer, allowedOrigins) {
   const io = new Server(httpServer, {
     cors: {
-      origin: allowedOrigins,
+      origin: function(origin, callback) {
+        if (!origin || (Array.isArray(allowedOrigins) && allowedOrigins.includes(origin))) {
+          return callback(null, true);
+        }
+        return callback(new Error('Not allowed by CORS'));
+      },
       methods: ['GET', 'POST'],
       credentials: true,
     },
