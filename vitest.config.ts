@@ -2,10 +2,25 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    coverage: {
-      provider: 'v8', // Use the V8 coverage provider
-      reporter: ['text', 'lcov'], // Generate lcov reports
-      reportsDirectory: './coverage', // Ensure reports are saved in ./coverage
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./vitest.setup.js'],
+    testTimeout: 10000,
+    exclude: [
+      'node_modules/**',
+      'server/**/*',
+      'dist/**',
+    ],
+  },
+  coverage: {
+    provider: 'v8',
+    reporter: ['text', 'lcov', 'html', 'json-summary'],
+    reportsDirectory: 'coverage',
+    thresholds: {
+      statements: 80,
+      branches: 70,
+      functions: 80,
+      lines: 80,
     },
   },
 });
