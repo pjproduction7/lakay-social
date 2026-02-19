@@ -17,7 +17,7 @@ jobs:
         id: check
         run: |
           set -euo pipefail
-          URL="https://lakay-social-production-361d.up.railway.app/health"
+          URL="https://lakay-social-production.up.railway.app/health"
           echo "Checking $URL"
           STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL" || echo "000")
           echo "status_code=$STATUS_CODE" >> "$GITHUB_OUTPUT"
@@ -41,45 +41,14 @@ jobs:
             const repo = context.repo.repo;
             const title = 'Production API is down - automated monitor';
             const now = new Date().toISOString();
-            const body = `Automated health check failed for https://lakay-social-production-361d.up.railway.app/health at ${now}.\n\nThis workflow attempted an automated redeploy and created/updated this issue so you can follow up.`;
+            const body = `Automated health check failed for https://lakay-social-production.up.railway.app/health at ${now}.`;
             const issues = await github.rest.issues.listForRepo({ owner, repo, state: 'open', per_page: 100 });
             const existing = issues.data.find(i => i.title === title);
             if (existing) {
-              await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body: `Health check still failing at ${now}. An automated redeploy attempt was made.` });
-              core.setOutput('issue_url', existing.html_url);
+              await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body: `Health check still failing at ${now}.` });
             } else {
-              const created = await github.rest.issues.create({ owner, repo, title, body });
-              core.setOutput('issue_url', created.data.html_url);
+              await github.rest.issues.create({ owner, repo, title, body });
             }
-
-      - name: Notify Slack
-        if: steps.check.outputs.healthy == 'false'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          if [ -z "${SLACK_WEBHOOK_URL:-}" ]; then
-            echo "SLACK_WEBHOOK_URL not set - skipping Slack notification."
-            exit 0
-          fi
-          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          TEXT="Production health check FAILED for https://lakay-social-production-361d.up.railway.app/health\nTime: ${NOW}\nAction run: ${RUN_URL}"
-          PAYLOAD=$(jq -n --arg text "$TEXT" '{text: $text}')
-          curl -s -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK_URL" || echo "Slack notify failed"
-
-      - name: Notify Microsoft Teams
-        if: steps.check.outputs.healthy == 'false'
-        env:
-          TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        run: |
-          if [ -z "${TEAMS_WEBHOOK_URL:-}" ]; then
-            echo "TEAMS_WEBHOOK_URL not set - skipping Teams notification."
-            exit 0
-          fi
-          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          PAYLOAD=$(printf '{"text": "Production health check FAILED for https://lakay-social-production-361d.up.railway.app/health\nTime: %s\nAction run: %s"}' "$NOW" "$RUN_URL")
-          curl -s -X POST -H 'Content-type: application/json' -d "$PAYLOAD" "$TEAMS_WEBHOOK_URL" || echo "Teams notify failed"
 
       - name: Checkout repo
         if: steps.check.outputs.healthy == 'false'
@@ -98,49 +67,15 @@ jobs:
           git commit --allow-empty -m "ci: trigger redeploy (automated health monitor)"
           git push origin HEAD:"$TARGET_BRANCH"
 
-<<<<<<< HEAD
       - name: Optional Railway CLI redeploy
         if: steps.check.outputs.healthy == 'false'
-=======
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Rebuild native modules
-        run: npm rebuild rollup
-
-      - name: Attempt Railway CLI redeploy
-        if: "steps.check.outputs.healthy == 'false'"
->>>>>>> chore/add-package-lockfile-pr
         env:
-          RAILWAY_API_KEY: "${{ secrets.RAILWAY_API_KEY }}"
+          RAILWAY_API_KEY: ${{ secrets.RAILWAY_API_KEY }}
         run: |
           if [ -z "${RAILWAY_API_KEY:-}" ]; then
             echo "RAILWAY_API_KEY not provided - skipping railway CLI redeploy."
             exit 0
           fi
           npm i -g @railway/cli@latest
-          echo "Logging into Railway CLI"
           railway login --apiKey "$RAILWAY_API_KEY"
-<<<<<<< HEAD
-          echo "Attempting railway up to trigger a redeploy"
           railway up --yes || echo "railway up failed or requires manual intervention"
-=======
-          echo "Attempting 'railway up' to trigger a redeploy (may require linked project)"
-          railway up --yes || echo "railway up failed or requires manual intervention"
-
-      - name: Run tests with coverage
-        run: npm run test -- --coverage
-
-      - name: Verify coverage directory
-        run: |
-          if [ ! -d "coverage/lcov-report" ]; then
-            echo "Coverage directory not found! Ensure tests generate coverage reports.";
-            exit 1;
-          fi
-
-      - name: Upload coverage artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: coverage/lcov-report
->>>>>>> chore/add-package-lockfile-pr
