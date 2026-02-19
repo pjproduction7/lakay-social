@@ -133,9 +133,16 @@ async function fetchPosts({ ids, limit = 100, user = null } = {}) {
   }));
 }
 
-router.get("/", requireAuth, async (req, res) => {
+router.get("/", optionalAuth, async (req, res) => {
   try {
-    const isAdmin = await checkIsAdmin(req.user.id);
+    let isAdmin = false;
+    if (req.user && req.user.id) {
+      try {
+        isAdmin = await checkIsAdmin(req.user.id);
+      } catch (e) {
+        console.error('Failed to verify admin status', e);
+      }
+    }
     const posts = await fetchPosts({ user: { isAdmin } });
     res.json(posts);
   } catch (err) {
