@@ -268,9 +268,22 @@ try {
   console.error('Failed to initialize Socket.IO:', err && err.message ? err.message : err);
 }
 
-server.listen(PORT, function() {
-  console.log("?? Lakay API running on port " + PORT);
-});
+(async function startServer() {
+  try {
+    // Run DB migrations on startup (safe / idempotent)
+    const migrations = await import('../scripts/run-migrations.mjs');
+    console.log('? Running DB migrations on startup');
+    await migrations.run();
+    console.log('? DB migrations completed');
+  } catch (err) {
+    console.error('Warning: migrations failed or skipped on startup:', err && err.message ? err.message : err);
+    // Do not crash the entire server for migration issues — deployment can still be healthy.
+  }
+
+  server.listen(PORT, function() {
+    console.log("?? Lakay API running on port " + PORT);
+  });
+})();
 
 async function ensureAdminUser() {
   var normalizedUsername = ADMIN_USERNAME.trim().toLowerCase();
