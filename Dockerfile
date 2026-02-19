@@ -1,20 +1,13 @@
-# Use official Node.js image
-FROM node:20
+FROM node:20 AS build
 
-# Set working directory
 WORKDIR /app
-
-# Copy package.json and package-lock.json
 COPY package.json package-lock.json ./
-
-# Install dependencies
-RUN npm ci --no-audit --progress=false
-
-# Copy the rest of the server code
+RUN npm ci --include=dev --no-audit --progress=false
+RUN npm install --no-audit --no-fund @vitejs/plugin-react --no-save
 COPY . .
 
-# Expose the port your server listens on
-EXPOSE 4001
+# Accept the variable as a build arg and expose it to Vite
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
-# Start the server using the actual entrypoint in this repo
-CMD ["node", "server/src/index.js"]
+RUN npm run build
