@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node start.js",
+    "postinstall": "npm --prefix server ci",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
