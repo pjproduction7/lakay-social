@@ -9,5 +9,11 @@ COPY . .
 # Accept the variable as a build arg and expose it to Vite
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+code C:\Users\JamesProsper\lakay\Dockerfile
+```
 
+Find the line `RUN npm run build` and add these two lines **directly above it**:
+```
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 RUN npm run build
