@@ -23,8 +23,6 @@ function safeParse(json) {
 }
 
 export function getApiBaseUrl() {
-  // Debug: show API base for client
-  // This log helps verify the runtime value used by sockets and API calls
   console.log('getApiBaseUrl ->', API_BASE_URL);
   return API_BASE_URL;
 }
@@ -88,11 +86,9 @@ export async function apiRequest(path, { method = "GET", body, headers = {}, aut
     const isJson = contentType.includes("application/json");
     let payload = isJson ? await response.json().catch(() => ({})) : await response.text();
 
-    // If 401 and we have auth, try to refresh token
     if (response.status === 401 && auth && getRefreshToken()) {
       try {
         await refreshAccessToken();
-        // Retry with new token
         const newToken = getAuthToken();
         if (newToken) {
           finalHeaders.Authorization = `Bearer ${newToken}`;
@@ -104,7 +100,6 @@ export async function apiRequest(path, { method = "GET", body, headers = {}, aut
           payload = isJson ? await response.json().catch(() => ({})) : await response.text();
         }
       } catch (refreshError) {
-        // Refresh failed, clear session
         clearSession();
         throw new Error("Session expired");
       }
@@ -151,4 +146,3 @@ export async function refreshAccessToken() {
 }
 
 export { TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_KEY };
-
