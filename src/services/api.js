@@ -1,6 +1,6 @@
 /* global process */
 
-// Updated URL config`nconst API_BASE_URL = (() => {
+const API_BASE_URL = (() => {
   const envCandidates = [
     typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_BASE_URL : undefined,
     typeof process !== "undefined" ? process.env?.NEXT_PUBLIC_API_BASE_URL : undefined,
@@ -151,3 +151,4 @@ export async function refreshAccessToken() {
 }
 
 export { TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_KEY };
+
