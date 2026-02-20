@@ -64,8 +64,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout "$TARGET_BRANCH"
+          # Ensure branch is up-to-date (prefer fast-forward; rebase if needed)
+          git fetch origin "$TARGET_BRANCH"
+          git pull --rebase origin "$TARGET_BRANCH" || echo "rebase failed - continuing"
           git commit --allow-empty -m "ci: trigger redeploy (automated health monitor)"
-          git push origin HEAD:"$TARGET_BRANCH"
+          # Try push; if rejected, rebase against remote and retry with lease
+          if ! git push origin HEAD:"$TARGET_BRANCH"; then
+            echo "Push rejected; retrying with rebase + force-with-lease"
+            git pull --rebase origin "$TARGET_BRANCH" || true
+            git push --force-with-lease origin HEAD:"$TARGET_BRANCH"
+          fi
 
       - name: Optional Railway CLI redeploy
         if: steps.check.outputs.healthy == 'false'
