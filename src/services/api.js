@@ -5,9 +5,19 @@ const API_BASE_URL = (() => {
     typeof import.meta !== "undefined" ? import.meta.env?.VITE_API_BASE_URL : undefined,
     typeof process !== "undefined" ? process.env?.NEXT_PUBLIC_API_BASE_URL : undefined,
   ];
-  const fallback = "http://localhost:4001";
-  const raw = envCandidates.find((value) => typeof value === "string" && value.length > 0) || fallback;
-  return raw.replace(/\/$/, "");
+  const envValue = envCandidates.find((value) => typeof value === "string" && value.length > 0);
+
+  if (envValue) {
+    return envValue.replace(/\/$/, "");
+  }
+
+  if (typeof window !== "undefined" && window.location?.origin) {
+    const origin = window.location.origin.replace(/\/$/, "");
+    console.info("[api] VITE_API_BASE_URL not set; falling back to same-origin:", origin);
+    return origin;
+  }
+
+  return "http://localhost:4001";
 })();
 
 const TOKEN_KEY = "lakay_access_token";

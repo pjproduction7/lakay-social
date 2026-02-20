@@ -89,11 +89,33 @@ app.use(helmet(helmetOptions));
 // ENABLE_PERMISSIVE_CORS=true (DO NOT leave enabled in production long-term).
 const PERMISSIVE_CORS = process.env.ENABLE_PERMISSIVE_CORS === 'true';
 
-const allowedOrigins = [
+const normalizeOrigin = (origin) =>
+  typeof origin === "string" ? origin.trim().toLowerCase().replace(/\/$/, "") : "";
+
+const defaultAllowedOrigins = [
   "https://lakaysocial.com",
   "https://www.lakaysocial.com",
   "https://lakay-social-production-361d.up.railway.app"
 ];
+
+const envAllowedOrigins = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = Array.from(
+  new Set([...defaultAllowedOrigins, ...envAllowedOrigins].map(normalizeOrigin))
+);
+
+const allowedOriginsSet = new Set(allowedOrigins);
+
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  const normalized = normalizeOrigin(origin);
+  if (allowedOriginsSet.has(normalized)) return true;
+  if (normalized.endsWith(".lakaysocial.com")) return true;
+  return false;
+}
 
 let corsOptions;
 if (PERMISSIVE_CORS) {
@@ -103,7 +125,7 @@ if (PERMISSIVE_CORS) {
   corsOptions = {
     origin: function(origin, callback) {
       console.log('[CORS] Production branch. Origin:', origin);
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (isOriginAllowed(origin)) {
         console.log('[CORS] Allowed origin (production):', origin);
         return callback(null, true);
       }
@@ -121,7 +143,7 @@ if (PERMISSIVE_CORS) {
         console.log('[CORS] Allowed origin (dev, localhost):', origin);
         return callback(null, true);
       }
-      if (allowedOrigins.includes(origin)) {
+      if (isOriginAllowed(origin)) {
         console.log('[CORS] Allowed origin (dev, allowedOrigins):', origin);
         return callback(null, true);
       }
@@ -136,20 +158,13 @@ app.use(cors(corsOptions));
 // Improved fallback CORS middleware: always set headers for allowed origins (including errors/404s)
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  // Use the same allowedOrigins array as main CORS config
-  const allowedOriginsSet = new Set([
-    "https://lakaysocial.com",
-    "https://www.lakaysocial.com",
-    "https://lakay-social-production-361d.up.railway.app"
-  ]);
-
   if (PERMISSIVE_CORS) {
     // Reflect the request origin (or allow all) while permissive mode is enabled
     res.header('Access-Control-Allow-Origin', origin || '*');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Authorization,Content-Type');
-  } else if (origin && allowedOriginsSet.has(origin)) {
+  } else if (origin && isOriginAllowed(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
@@ -164,18 +179,12 @@ app.use((req, res, next) => {
 // Add preflight CORS support for all routes
 app.options('*', (req, res) => {
   const origin = req.headers.origin;
-  const allowedOriginsSet = new Set([
-    "https://lakaysocial.com",
-    "https://www.lakaysocial.com",
-    "https://lakay-social-production-361d.up.railway.app"
-  ]);
-
   if (PERMISSIVE_CORS) {
     res.header('Access-Control-Allow-Origin', origin || '*');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
     res.header('Access-Control-Allow-Headers', 'Authorization,Content-Type');
-  } else if (origin && allowedOriginsSet.has(origin)) {
+  } else if (origin && isOriginAllowed(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Credentials', 'true');
     res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS');
@@ -288,7 +297,7 @@ server.on('upgrade', (req, socket, head) => {
 import { initSocket } from './services/socket.js';
 import { initRealtime } from './realtime.js';
 try {
-  const io = initSocket(server, allowedOrigins);
+  const io = initSocket(server, PERMISSIVE_CORS ? true : allowedOrigins);
   initRealtime(io);
   console.log('? Socket.IO initialized');
 } catch (err) {
