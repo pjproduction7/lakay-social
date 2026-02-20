@@ -43,6 +43,9 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT ? Number(process.env.PORT) : 4001;
 
+// Trust Railway/hosting proxy so rate limiting uses correct client IPs
+app.set('trust proxy', 1);
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', env: process.env.NODE_ENV || 'development', uptime: Math.round(process.uptime()) });
