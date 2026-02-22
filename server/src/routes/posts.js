@@ -37,7 +37,39 @@ const commentSchema = z.object({
   content: z.string().min(1).max(1000),
 });
 
+let cachedPostsColumns = null;
+let postsColumnsCheckedAt = 0;
+const POSTS_COLUMNS_TTL_MS = 60 * 1000;
+
+async function getPostsColumns() {
+  const now = Date.now();
+  if (cachedPostsColumns && now - postsColumnsCheckedAt < POSTS_COLUMNS_TTL_MS) {
+    return cachedPostsColumns;
+  }
+
+  try {
+    const result = await query(
+      `SELECT column_name
+       FROM information_schema.columns
+       WHERE table_name = 'posts'
+         AND column_name IN ('approved', 'post_type')`
+    );
+    const cols = new Set(result.rows.map((row) => row.column_name));
+    cachedPostsColumns = {
+      hasApproved: cols.has('approved'),
+      hasPostType: cols.has('post_type'),
+    };
+  } catch (err) {
+    console.error("Failed to read posts columns; falling back to legacy schema", err);
+    cachedPostsColumns = { hasApproved: false, hasPostType: false };
+  }
+
+  postsColumnsCheckedAt = now;
+  return cachedPostsColumns;
+}
+
 async function fetchPosts({ ids, limit = 100, user = null } = {}) {
+  const { hasApproved, hasPostType } = await getPostsColumns();
   const hasIds = Array.isArray(ids) && ids.length > 0;
   const params = [];
   let postsQuery = `
@@ -50,8 +82,8 @@ async function fetchPosts({ ids, limit = 100, user = null } = {}) {
       p.reaction_love,
       p.reaction_haha,
       p.reaction_fire,
-      p.approved,
-      p.post_type,
+      ${hasApproved ? "p.approved" : "NULL::boolean as approved"},
+      ${hasPostType ? "p.post_type" : "'post'::varchar as post_type"},
       p.created_at
     FROM posts p
   `;
@@ -61,7 +93,7 @@ async function fetchPosts({ ids, limit = 100, user = null } = {}) {
     postsQuery += `WHERE p.id = ANY($1::int[])`;
   } else {
     // For general feed, only show approved posts unless user is admin
-    if (!user || !user.isAdmin) {
+    if (hasApproved && (!user || !user.isAdmin)) {
       postsQuery += `WHERE p.approved = true`;
     }
   }
@@ -168,12 +200,20 @@ router.post("/", requireAuth, async (req, res) => {
   const approved = isMemorial ? false : true;
   
   try {
-    const insert = await query(
-      `INSERT INTO posts (user_id, username, content, image_url, post_type, approved)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id`,
-      [req.user.id, req.user.username, content, imageUrl, postType, approved]
-    );
+    const { hasApproved, hasPostType } = await getPostsColumns();
+    const insert = hasApproved || hasPostType
+      ? await query(
+          `INSERT INTO posts (user_id, username, content, image_url, post_type, approved)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING id`,
+          [req.user.id, req.user.username, content, imageUrl, postType, approved]
+        )
+      : await query(
+          `INSERT INTO posts (user_id, username, content, image_url)
+           VALUES ($1, $2, $3, $4)
+           RETURNING id`,
+          [req.user.id, req.user.username, content, imageUrl]
+        );
 
     const [post] = await fetchPosts({ ids: [insert.rows[0].id] });
     res.status(201).json(post);
