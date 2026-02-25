@@ -39,9 +39,19 @@ router.post("/signup", authLimiter, async (req, res) => {
 
   const { username, password, email } = parse.data;
   try {
-    const existing = await query("SELECT id FROM users WHERE username = $1", [username]);
+    const existing = await query(
+      "SELECT id, username, email FROM users WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($2)",
+      [username, email]
+    );
     if (existing.rowCount > 0) {
-      return res.status(409).json({ error: "Username already exists" });
+      const row = existing.rows[0];
+      if (row.username && row.username.toLowerCase() === username.toLowerCase()) {
+        return res.status(409).json({ error: "Username already exists" });
+      }
+      if (row.email && row.email.toLowerCase() === email.toLowerCase()) {
+        return res.status(409).json({ error: "Email already exists" });
+      }
+      return res.status(409).json({ error: "Username or email already exists" });
     }
 
     const hash = await bcrypt.hash(password, 12);
@@ -99,6 +109,9 @@ router.post("/signup", authLimiter, async (req, res) => {
     
     res.status(201).json({ user: insert.rows[0], token });
   } catch (err) {
+    if (err && err.code === "23505") {
+      return res.status(409).json({ error: "Username or email already exists" });
+    }
     console.error(err);
     res.status(500).json({ error: "Signup failed" });
   }

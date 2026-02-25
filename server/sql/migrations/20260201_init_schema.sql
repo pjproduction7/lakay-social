@@ -1,3 +1,6 @@
+-- Migration: initialize base schema
+-- Run: npm --prefix server run migrate
+
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(32) UNIQUE NOT NULL,
@@ -90,4 +93,3 @@ CREATE TABLE IF NOT EXISTS user_roles (
     granted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(user_id, role)
 );
-

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Camera, X, Send, Bookmark, MessageSquare, Edit, Trash2 } from 'lucide-react';
+import EmojiPicker from './shared/EmojiPicker';
 
 export default function Feed({
   trans,
@@ -9,6 +10,10 @@ export default function Feed({
   postImageInputId,
   handleImageUpload,
   handleCreatePost,
+  postTextColor,
+  postFontFamily,
+  onPostTextColorChange,
+  onPostFontFamilyChange,
   posts,
   openProfile,
   currentUser,
@@ -23,6 +28,18 @@ export default function Feed({
   onDeletePost,
   onViewMemorials,
 }) {
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const handleInsertEmoji = (emoji) => {
+    const el = postTextRef?.current;
+    if (!el) return;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    const next = `${el.value.slice(0, start)}${emoji}${el.value.slice(end)}`;
+    el.value = next;
+    el.focus();
+    const cursor = start + emoji.length;
+    el.setSelectionRange(cursor, cursor);
+  };
   return (
     <>
       {/* Create Post */}
@@ -34,8 +51,45 @@ export default function Feed({
           defaultValue={postText}
           placeholder={trans.createPostPlaceholder}
           className="w-full p-4 rounded-xl border-4 border-white/50 text-gray-900 mb-4 text-lg font-semibold"
+          style={{ color: postTextColor || undefined, fontFamily: postFontFamily || undefined }}
           rows={3}
         />
+
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <label className="text-white font-semibold">Text color</label>
+          <input
+            type="color"
+            value={postTextColor}
+            onChange={(e) => onPostTextColorChange(e.target.value)}
+            className="h-10 w-12 rounded border-2 border-white/50 bg-white"
+          />
+          <label className="text-white font-semibold">Font</label>
+          <select
+            value={postFontFamily}
+            onChange={(e) => onPostFontFamilyChange(e.target.value)}
+            className="px-3 py-2 rounded-lg border-2 border-white/50 text-gray-900 bg-white"
+          >
+            <option value="inherit">Default</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
+            <option value="Verdana, sans-serif">Verdana</option>
+            <option value="'Courier New', monospace">Courier</option>
+            <option value="'Times New Roman', serif">Times</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => setEmojiPickerOpen((prev) => !prev)}
+            className="ml-auto bg-white text-purple-700 py-2 px-4 rounded-lg font-bold hover:scale-105 transition"
+          >
+            😀 Emoji
+          </button>
+        </div>
+
+        {emojiPickerOpen && (
+          <div className="mb-4">
+            <EmojiPicker onSelect={handleInsertEmoji} />
+          </div>
+        )}
 
         {postImage && (
           <div className="mb-4 relative">
@@ -149,7 +203,12 @@ export default function Feed({
               </div>
 
               {/* Post Content */}
-              <p className="text-white text-lg font-semibold mb-4 bg-black/20 rounded-xl p-4">{post.content}</p>
+              <p
+                className="text-white text-lg font-semibold mb-4 bg-black/20 rounded-xl p-4"
+                style={{ color: post.textColor || undefined, fontFamily: post.fontFamily || undefined }}
+              >
+                {post.content}
+              </p>
 
               {/* Post Image */}
               {post.image && (
@@ -176,16 +235,32 @@ export default function Feed({
 
                 {/* Emoji Reactions */}
                 <div className="flex gap-3 text-2xl">
-                  <button onClick={() => handleReaction(post.id, 'like')} className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition">
+                  <button
+                    onClick={() => post.id && handleReaction(post.id, 'like')}
+                    disabled={!post.id}
+                    className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     👍 <span className="text-sm font-bold">{post.reactions.like}</span>
                   </button>
-                  <button onClick={() => handleReaction(post.id, 'love')} className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition">
+                  <button
+                    onClick={() => post.id && handleReaction(post.id, 'love')}
+                    disabled={!post.id}
+                    className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     ❤️ <span className="text-sm font-bold">{post.reactions.love}</span>
                   </button>
-                  <button onClick={() => handleReaction(post.id, 'haha')} className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition">
+                  <button
+                    onClick={() => post.id && handleReaction(post.id, 'haha')}
+                    disabled={!post.id}
+                    className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     😂 <span className="text-sm font-bold">{post.reactions.haha}</span>
                   </button>
-                  <button onClick={() => handleReaction(post.id, 'fire')} className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition">
+                  <button
+                    onClick={() => post.id && handleReaction(post.id, 'fire')}
+                    disabled={!post.id}
+                    className="bg-white/20 px-3 py-1 rounded-lg hover:scale-110 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     🔥 <span className="text-sm font-bold">{post.reactions.fire}</span>
                   </button>
                 </div>
@@ -236,7 +311,8 @@ export default function Feed({
                 />
                 <button
                   onClick={() => handleAddComment(post.id)}
-                  className="bg-white px-6 rounded-xl hover:scale-110 transition text-orange-600 font-bold"
+                  disabled={!post.id}
+                  className="bg-white px-6 rounded-xl hover:scale-110 transition text-orange-600 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Send size={24} />
                 </button>

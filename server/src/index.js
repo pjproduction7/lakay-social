@@ -95,6 +95,19 @@ const PERMISSIVE_CORS = process.env.ENABLE_PERMISSIVE_CORS === 'true';
 const normalizeOrigin = (origin) =>
   typeof origin === "string" ? origin.trim().toLowerCase().replace(/\/$/, "") : "";
 
+const getOriginInfo = (origin) => {
+  if (!origin || typeof origin !== "string") {
+    return { origin: "", hostname: "" };
+  }
+  const trimmed = origin.trim();
+  try {
+    const url = new URL(trimmed);
+    return { origin: url.origin.toLowerCase(), hostname: url.hostname.toLowerCase() };
+  } catch (err) {
+    return { origin: normalizeOrigin(trimmed), hostname: "" };
+  }
+};
+
 const defaultAllowedOrigins = [
   "https://lakaysocial.com",
   "https://www.lakaysocial.com",
@@ -111,12 +124,28 @@ const allowedOrigins = Array.from(
 );
 
 const allowedOriginsSet = new Set(allowedOrigins);
+const allowedHostnamesSet = new Set(
+  [...defaultAllowedOrigins, ...envAllowedOrigins]
+    .map((origin) => {
+      try {
+        return new URL(origin).hostname.toLowerCase();
+      } catch (err) {
+        return "";
+      }
+    })
+    .filter(Boolean)
+);
 
 function isOriginAllowed(origin) {
   if (!origin) return true;
-  const normalized = normalizeOrigin(origin);
+  const { origin: normalized, hostname } = getOriginInfo(origin);
   if (allowedOriginsSet.has(normalized)) return true;
-  if (normalized.endsWith(".lakaysocial.com")) return true;
+  if (hostname) {
+    if (allowedHostnamesSet.has(hostname)) return true;
+    if (hostname === "lakaysocial.com" || hostname.endsWith(".lakaysocial.com")) return true;
+  } else if (normalized.endsWith(".lakaysocial.com")) {
+    return true;
+  }
   return false;
 }
 

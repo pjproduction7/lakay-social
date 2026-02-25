@@ -7,23 +7,52 @@ const JWT_SECRET = process.env.JWT_SECRET || 'change-this-secret-in-production';
 const normalizeOrigin = (origin) =>
   typeof origin === 'string' ? origin.trim().toLowerCase().replace(/\/$/, '') : '';
 
+const getOriginInfo = (origin) => {
+  if (!origin || typeof origin !== 'string') {
+    return { origin: '', hostname: '' };
+  }
+  const trimmed = origin.trim();
+  try {
+    const url = new URL(trimmed);
+    return { origin: url.origin.toLowerCase(), hostname: url.hostname.toLowerCase() };
+  } catch (err) {
+    return { origin: normalizeOrigin(trimmed), hostname: '' };
+  }
+};
+
 export function initSocket(httpServer, allowedOrigins) {
   const normalizedAllowedOrigins = Array.isArray(allowedOrigins)
     ? allowedOrigins.map(normalizeOrigin)
     : allowedOrigins;
+  const allowedHostnames = Array.isArray(allowedOrigins)
+    ? allowedOrigins
+        .map((origin) => {
+          try {
+            return new URL(origin).hostname.toLowerCase();
+          } catch (err) {
+            return '';
+          }
+        })
+        .filter(Boolean)
+    : [];
+  const allowedHostnamesSet = new Set(allowedHostnames);
   const io = new Server(httpServer, {
     cors: {
       origin: function(origin, callback) {
         // Allow server-to-server (no-origin) requests
         if (!origin) return callback(null, true);
+        const isDev = process.env.NODE_ENV !== 'production';
         // If caller passed `true` for allowedOrigins, permit everything
         if (normalizedAllowedOrigins === true) return callback(null, true);
         // Otherwise require the origin to be present in the allowlist
-        const normalizedOrigin = normalizeOrigin(origin);
+        const { origin: normalizedOrigin, hostname } = getOriginInfo(origin);
+        if (isDev && normalizedOrigin && (normalizedOrigin.startsWith('http://localhost') || normalizedOrigin.startsWith('http://127.0.0.1'))) {
+          return callback(null, true);
+        }
         if (Array.isArray(normalizedAllowedOrigins) && normalizedAllowedOrigins.includes(normalizedOrigin)) {
           return callback(null, true);
         }
-        if (normalizedOrigin.endsWith('.lakaysocial.com')) {
+        if (hostname && (allowedHostnamesSet.has(hostname) || hostname.endsWith('.lakaysocial.com') || hostname === 'lakaysocial.com')) {
           return callback(null, true);
         }
         return callback(new Error('Not allowed by CORS'));

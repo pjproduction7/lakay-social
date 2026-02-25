@@ -1,15 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Edit, Trash2 } from 'lucide-react';
 import PropTypes from 'prop-types';
+import EmojiPicker from './shared/EmojiPicker';
 
 export default function Memorials({
   memorials,
-  memorialPhoto,
+  memorialPhotos,
   memorialNameRef,
   memorialYearsRef,
   memorialTributeRef,
-  setMemorialPhoto,
-  setMemorialFile,
+  setMemorialPhotos,
+  setMemorialFiles,
+  memorialTextColor,
+  memorialFontFamily,
+  onMemorialTextColorChange,
+  onMemorialFontFamilyChange,
   handleCreateMemorial,
   handleAddCondolence,
   isAdmin,
@@ -17,6 +22,18 @@ export default function Memorials({
   onEditMemorial,
   onDeleteMemorial,
 }) {
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const handleInsertEmoji = (emoji) => {
+    const el = memorialTributeRef?.current;
+    if (!el) return;
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    const next = `${el.value.slice(0, start)}${emoji}${el.value.slice(end)}`;
+    el.value = next;
+    el.focus();
+    const cursor = start + emoji.length;
+    el.setSelectionRange(cursor, cursor);
+  };
   return (
     <div>
       <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl p-6 mb-4 shadow-lg">
@@ -31,21 +48,67 @@ export default function Memorials({
         <input placeholder="Years (e.g., 1950-2023)" ref={memorialYearsRef} className="w-full p-3 border-2 rounded-lg mb-3 text-gray-900" />
 
         <div className="mb-3">
-          <label className="block text-sm font-semibold text-gray-900 mb-2">Upload Photo</label>
-          <input type="file" accept="image/*" onChange={(e) => {
-            const file = e.target.files[0];
-            if (file) {
-              const reader = new FileReader();
-              reader.onload = () => setMemorialPhoto(reader.result);
-              reader.readAsDataURL(file);
-              setMemorialFile(file);
+          <label className="block text-sm font-semibold text-gray-900 mb-2">Upload Photos</label>
+          <input type="file" accept="image/*" multiple onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            if (files.length > 0) {
+              const readers = files.map((file) => new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.readAsDataURL(file);
+              }));
+              Promise.all(readers).then((results) => {
+                setMemorialPhotos(results.filter(Boolean));
+              });
+              setMemorialFiles(files);
+            } else {
+              setMemorialPhotos([]);
+              setMemorialFiles([]);
             }
           }} className="w-full p-2 border-2 rounded-lg" />
         </div>
 
-        {memorialPhoto && (
+        {Array.isArray(memorialPhotos) && memorialPhotos.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            {memorialPhotos.map((photo, idx) => (
+              <img key={idx} src={photo} alt={`Preview ${idx + 1}`} className="w-24 h-24 rounded-lg object-cover" loading="lazy" />
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3 mb-3">
+          <label className="text-sm font-semibold text-gray-900">Text color</label>
+          <input
+            type="color"
+            value={memorialTextColor}
+            onChange={(e) => onMemorialTextColorChange(e.target.value)}
+            className="h-10 w-12 rounded border-2 border-gray-300 bg-white"
+          />
+          <label className="text-sm font-semibold text-gray-900">Font</label>
+          <select
+            value={memorialFontFamily}
+            onChange={(e) => onMemorialFontFamilyChange(e.target.value)}
+            className="px-3 py-2 rounded-lg border-2 border-gray-300 text-gray-900 bg-white"
+          >
+            <option value="inherit">Default</option>
+            <option value="Georgia, serif">Georgia</option>
+            <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
+            <option value="Verdana, sans-serif">Verdana</option>
+            <option value="'Courier New', monospace">Courier</option>
+            <option value="'Times New Roman', serif">Times</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => setEmojiPickerOpen((prev) => !prev)}
+            className="ml-auto bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700"
+          >
+            😀 Emoji
+          </button>
+        </div>
+
+        {emojiPickerOpen && (
           <div className="mb-3">
-            <img src={memorialPhoto} alt="Preview" className="w-32 h-32 rounded-lg object-cover" loading="lazy" />
+            <EmojiPicker onSelect={handleInsertEmoji} />
           </div>
         )}
 
@@ -84,7 +147,7 @@ export default function Memorials({
                   <Edit size={20} />
                 </button>
               )}
-              {isAdmin && (
+              {(currentUser === memorial.author) && (
                 <button
                   onClick={() => onDeleteMemorial(memorial.id)}
                   className="text-red-600 hover:text-red-800 hover:scale-110 transition p-2"
@@ -96,7 +159,20 @@ export default function Memorials({
             </div>
           </div>
 
-          <p className="text-gray-800 whitespace-pre-wrap mb-4">{memorial.tribute}</p>
+          <p
+            className="text-gray-800 whitespace-pre-wrap mb-4"
+            style={{ color: memorial.textColor || undefined, fontFamily: memorial.fontFamily || undefined }}
+          >
+            {memorial.tribute}
+          </p>
+
+          {Array.isArray(memorial.photos) && memorial.photos.length > 1 && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-4">
+              {memorial.photos.map((photo, idx) => (
+                <img key={`${memorial.id}-${idx}`} src={photo} alt={`${memorial.name} photo ${idx + 1}`} className="w-full h-48 rounded-lg object-cover" loading="lazy" />
+              ))}
+            </div>
+          )}
 
           <div className="border-t-2 pt-4">
             <h4 className="font-bold text-gray-900 mb-3">💬 Condolences ({(memorial.condolences || []).length})</h4>
@@ -143,12 +219,16 @@ export default function Memorials({
 
 Memorials.propTypes = {
   memorials: PropTypes.array.isRequired,
-  memorialPhoto: PropTypes.string,
+  memorialPhotos: PropTypes.array,
   memorialNameRef: PropTypes.object,
   memorialYearsRef: PropTypes.object,
   memorialTributeRef: PropTypes.object,
-  setMemorialPhoto: PropTypes.func.isRequired,
-  setMemorialFile: PropTypes.func,
+  setMemorialPhotos: PropTypes.func.isRequired,
+  setMemorialFiles: PropTypes.func,
+  memorialTextColor: PropTypes.string,
+  memorialFontFamily: PropTypes.string,
+  onMemorialTextColorChange: PropTypes.func,
+  onMemorialFontFamilyChange: PropTypes.func,
   handleCreateMemorial: PropTypes.func.isRequired,
   handleAddCondolence: PropTypes.func.isRequired,
   isAdmin: PropTypes.bool,

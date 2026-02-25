@@ -4,7 +4,8 @@ import axios from 'axios';
 // API Configuration
 const API_BASE_URL = __DEV__
   ? 'http://localhost:4000'
-  : 'https://your-production-api.com';
+  : process.env.EXPO_PUBLIC_API_URL ??
+    'https://lakay-social-production-fee1.up.railway.app';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -99,6 +100,7 @@ export const secureStorage = {
 // Request Interceptor - Add Auth Token
 api.interceptors.request.use(
   async (config) => {
+    console.log('API baseURL', api.defaults.baseURL);
     const token = await secureStorage.getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -112,6 +114,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    const status = error.response?.status;
+    const url = error.config?.url ?? '';
+    if (status || url) {
+      console.log('API response error', { status, url });
+    }
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {

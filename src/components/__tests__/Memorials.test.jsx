@@ -12,12 +12,12 @@ test('calls handleAddCondolence when pressing Enter in condolence input', async 
   render(
     <Memorials
       memorials={mem}
-      memorialPhoto={null}
+      memorialPhotos={[]}
       memorialNameRef={{ current: null }}
       memorialYearsRef={{ current: null }}
       memorialTributeRef={{ current: null }}
-      setMemorialPhoto={() => {}}
-      setMemorialFile={() => {}}
+      setMemorialPhotos={() => {}}
+      setMemorialFiles={() => {}}
       handleCreateMemorial={() => {}}
       handleAddCondolence={handleAddCondolence}
     />

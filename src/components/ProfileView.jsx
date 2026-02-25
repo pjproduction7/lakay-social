@@ -29,7 +29,11 @@ export default function ProfileView({
   onSaveProfile,
   onChangePassword,
   onMessage,
+  userTheme,
+  onUpdateUserTheme,
 }) {
+  const titleClass = "glow-title";
+  const subtitleClass = "glow-subtitle";
   return (
     <div className={`${/* cardBg is passed by parent wrapper */ ''}`}> 
       <div className="rounded-xl p-5 shadow">
@@ -43,17 +47,17 @@ export default function ProfileView({
           </div>
 
           <div className="flex-1">
-            <div className="text-xl font-bold text-gray-900">{p.displayName || u}</div>
-            <div className="text-sm text-gray-600">@{u}</div>
-            <div className="text-sm text-gray-600 mt-1">{p.location || 'No location set'}</div>
+            <div className={`text-xl font-bold ${titleClass}`}>{p.displayName || u}</div>
+            <div className={`text-sm ${subtitleClass}`}>@{u}</div>
+            <div className={`text-sm ${subtitleClass} mt-1`}>{p.location || 'No location set'}</div>
           </div>
         </div>
 
         {isMe && (
           <div className="mt-6">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <div className="font-bold text-gray-900">Photo Gallery</div>
-              <div className="text-sm text-gray-600">{(p.photos?.length || 0)} / {MAX_PROFILE_PHOTOS} photos</div>
+              <div className={`font-bold ${titleClass}`}>Photo Gallery</div>
+              <div className={`text-sm ${subtitleClass}`}>{(p.photos?.length || 0)} / {MAX_PROFILE_PHOTOS} photos</div>
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -61,23 +65,26 @@ export default function ProfileView({
                 {isUploadingPhotos ? 'Uploading...' : 'Upload Photos'}
                 <input type="file" accept="image/*" multiple className="hidden" disabled={isUploadingPhotos} onChange={(e) => handleProfilePhotoUpload(e.target.files)} />
               </label>
-              <div className="text-sm text-gray-600">Supports JPG, PNG, WEBP. Maximum {MAX_PROFILE_PHOTOS} photos.</div>
-              <div className="text-xs text-gray-500">Tip: Hold Ctrl (or Command on Mac) to select multiple photos at once.</div>
+              <div className={`text-sm ${subtitleClass}`}>Supports JPG, PNG, WEBP. Maximum {MAX_PROFILE_PHOTOS} photos.</div>
+              <div className="text-xs text-slate-400">Tip: Hold Ctrl (or Command on Mac) to select multiple photos at once.</div>
             </div>
           </div>
         )}
 
         <div className="mt-4">
-          <div className="font-bold text-gray-900 mb-2">Bio</div>
+          <div className={`font-bold ${titleClass} mb-2`}>Bio</div>
           {isMe ? (
-            <textarea className="w-full p-3 rounded-lg border-2 text-gray-900" rows={3} value={editBio} onChange={(e) => onEditBioChange(e.target.value)} placeholder="Tell me about you..." />
+            <>
+              <textarea className="w-full p-3 rounded-lg border-2 text-gray-900" rows={3} value={editBio} maxLength={800} onChange={(e) => onEditBioChange(e.target.value)} placeholder="Tell me about you..." />
+              <div className="mt-2 text-right text-xs text-gray-500">{(editBio || "").length} / 800</div>
+            </>
           ) : (
             <div className="text-gray-800 bg-gray-100 p-3 rounded-lg">{p.bio || 'No bio yet.'}</div>
           )}
         </div>
 
         <div className="mt-6">
-          <div className="font-bold text-gray-900 mb-2">Photo Gallery</div>
+          <div className={`font-bold ${titleClass} mb-2`}>Photo Gallery</div>
           {p.photos?.length ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {p.photos.map((photo) => {
@@ -87,7 +94,7 @@ export default function ProfileView({
                     <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
                       <img src={photo.photo_url} alt="Profile" className="w-full h-full object-cover" loading="lazy" />
                     </div>
-                    <div className="flex items-center justify-between mt-2 text-sm text-gray-700">
+                    <div className={`flex items-center justify-between mt-2 text-sm ${subtitleClass}`}>
                       <span>{FILTER_LABEL_LOOKUP[photo.filter_style] || 'Original'}</span>
                       {photo.is_primary && <span className="text-green-600 font-semibold">Primary</span>}
                     </div>
@@ -125,12 +132,38 @@ export default function ProfileView({
           {isMe && (
             <>
               <div className="mt-4">
-                <div className="font-bold text-gray-900 mb-2">Display Name</div>
+                <div className={`font-bold ${titleClass} mb-2`}>Display Name</div>
                 <input className="w-full p-3 rounded-lg border-2 text-gray-900" value={editDisplayName} onChange={(e) => onEditDisplayNameChange(e.target.value)} placeholder="Your display name" />
               </div>
               <div className="mt-4">
-                <div className="font-bold text-gray-900 mb-2">Location</div>
+                <div className={`font-bold ${titleClass} mb-2`}>Location</div>
                 <input className="w-full p-3 rounded-lg border-2 text-gray-900" value={editLocation} onChange={(e) => onEditLocationChange(e.target.value)} placeholder="City / Country" />
+              </div>
+              <div className="mt-4">
+                <div className={`font-bold ${titleClass} mb-2`}>App Theme (Just for You)</div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="text-sm font-semibold text-slate-300">Text color</label>
+                  <input
+                    type="color"
+                    value={userTheme?.textColor || "#ffffff"}
+                    onChange={(e) => onUpdateUserTheme({ ...userTheme, textColor: e.target.value })}
+                    className="h-10 w-12 rounded border-2 border-gray-300 bg-white"
+                  />
+                  <label className="text-sm font-semibold text-slate-300">Font</label>
+                  <select
+                    value={userTheme?.fontFamily || "inherit"}
+                    onChange={(e) => onUpdateUserTheme({ ...userTheme, fontFamily: e.target.value })}
+                    className="px-3 py-2 rounded-lg border-2 border-gray-300 text-gray-900 bg-white"
+                  >
+                    <option value="inherit">Default</option>
+                    <option value="Georgia, serif">Georgia</option>
+                    <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
+                    <option value="Verdana, sans-serif">Verdana</option>
+                    <option value="'Courier New', monospace">Courier</option>
+                    <option value="'Times New Roman', serif">Times</option>
+                  </select>
+                </div>
+                <div className="text-xs text-slate-400 mt-2">These settings only affect how the app looks on your device.</div>
               </div>
               <button onClick={onSaveProfile} className="mt-4 w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700">Save Profile</button>
               <button onClick={onChangePassword} className="mt-3 w-full bg-purple-600 text-white font-bold py-3 rounded-xl hover:bg-purple-700">Change Password</button>
@@ -175,4 +208,6 @@ ProfileView.propTypes = {
   onSaveProfile: PropTypes.func,
   onChangePassword: PropTypes.func,
   onMessage: PropTypes.func,
+  userTheme: PropTypes.object,
+  onUpdateUserTheme: PropTypes.func,
 };

@@ -32,6 +32,7 @@ import useGoogleTranslate from '../hooks/useGoogleTranslate';
 import useChatSocket from '../hooks/useChatSocket';
 import { mergePrivateMessage } from '../utils/privateMessages';
 
+const THEME_STORAGE_KEY = "lakay_user_theme";
 
 // Services & Utils
 import {
@@ -80,6 +81,14 @@ const readEnvValue = (keys, fallback) => {
   return fallback;
 };
 
+const safeParseJson = (value) => {
+  try {
+    return JSON.parse(value ?? "null");
+  } catch {
+    return null;
+  }
+};
+
 const ADMIN_USERNAME = (readEnvValue(['NEXT_PUBLIC_ADMIN_USERNAME', 'VITE_ADMIN_USERNAME'], 'admin') || 'admin').toLowerCase();
 const rawAdminPanelEnabled = readEnvValue(
   ['NEXT_PUBLIC_ADMIN_PANEL_ENABLED', 'VITE_ADMIN_PANEL_ENABLED'],
@@ -99,6 +108,7 @@ export default function HaitiSocialApp() {
   // ========== CORE STATE ========== 
   const [darkMode, setDarkMode] = useState(true);
   const [language, setLanguageState] = useState("en");
+  const [userTheme, setUserTheme] = useState({ textColor: "", fontFamily: "inherit" });
   // ... rest of your code
   // ========== CORE STATE ==========
 
@@ -309,6 +319,8 @@ export default function HaitiSocialApp() {
   const [posts, setPosts] = useState([]);
   const [postText, setPostText] = useState("");
   const [postImage, setPostImage] = useState(null);
+  const [postTextColor, setPostTextColor] = useState("#ffffff");
+  const [postFontFamily, setPostFontFamily] = useState("inherit");
   const [commentTexts, setCommentTexts] = useState({});
   const postTextRef = useRef(null);
   const commentRefs = useRef({});
@@ -408,8 +420,10 @@ export default function HaitiSocialApp() {
 
   // ========== MEMORIALS ==========
   const [memorials, setMemorials] = useState([]);
-  const [memorialPhoto, setMemorialPhoto] = useState(null);
-  const [memorialFile, setMemorialFile] = useState(null);
+  const [memorialPhotos, setMemorialPhotos] = useState([]);
+  const [memorialFiles, setMemorialFiles] = useState([]);
+  const [memorialTextColor, setMemorialTextColor] = useState("#1f2937");
+  const [memorialFontFamily, setMemorialFontFamily] = useState("inherit");
   const memorialNameRef = useRef(null);
   const memorialYearsRef = useRef(null);
   const memorialTributeRef = useRef(null);
@@ -834,6 +848,28 @@ export default function HaitiSocialApp() {
     onPresenceUpdate: setOnlineUsers,
   });
 
+  const parseImageUrls = useCallback((image) => {
+    if (!image) return [];
+    if (Array.isArray(image)) {
+      return image.filter(Boolean);
+    }
+    if (typeof image === "string") {
+      const trimmed = image.trim();
+      if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            return parsed.filter(Boolean);
+          }
+        } catch {
+          // fall through to treat as single url
+        }
+      }
+      return [image];
+    }
+    return [];
+  }, []);
+
   const loadFeed = useCallback(async () => {
     try {
       const remotePosts = await fetchPosts();
@@ -841,7 +877,9 @@ export default function HaitiSocialApp() {
         id: post.id,
         user: post.user,
         content: post.content,
-        image: post.image,
+        image: parseImageUrls(post.image)[0] || null,
+        textColor: post.textColor || null,
+        fontFamily: post.fontFamily || null,
         likes: Array.isArray(post.likes) ? post.likes : [],
         reactions: {
           like: post.reactions?.like || 0,
@@ -852,8 +890,15 @@ export default function HaitiSocialApp() {
         comments: Array.isArray(post.comments) ? post.comments : [],
         timestamp: post.timestamp,
       }));
-      setPosts(formatted);
-      console.log(`loadFeed -> ${formatted.length} posts`);
+
+      const invalidPosts = formatted.filter((post) => !post.id);
+      if (invalidPosts.length > 0) {
+        console.warn("loadFeed: posts missing id", invalidPosts);
+      }
+
+      const filtered = formatted.filter((post) => post.id);
+      setPosts(filtered);
+      console.log(`loadFeed -> ${filtered.length} posts`);
 
       // Load memorials from posts
       const memorialsFromPosts = remotePosts
@@ -862,12 +907,13 @@ export default function HaitiSocialApp() {
           const lines = post.content.split('\n');
           return lines.length >= 2 && lines[1] === '';
         })
-        .map(post => {
-          const content = post.content;
-          const lines = content.split('\n');
-          
-          // Parse name and years from first line
-          const firstLine = lines[0];
+         .map(post => {
+           const content = post.content;
+           const lines = content.split('\n');
+           const imageUrls = parseImageUrls(post.image);
+           
+           // Parse name and years from first line
+           const firstLine = lines[0];
           let name = firstLine;
           let years = '';
           
@@ -881,15 +927,18 @@ export default function HaitiSocialApp() {
           // Everything after the blank line is the tribute
           const tribute = lines.slice(2).join('\n').trim();
           
-          return {
-            id: post.id,
-            name,
-            years,
-            tribute,
-            photo: post.image,
-            author: post.user,
-            timestamp: post.timestamp,
-            condolences: Array.isArray(post.comments) ? post.comments.map(comment => ({
+           return {
+             id: post.id,
+             name,
+             years,
+             tribute,
+             photo: imageUrls[0] || null,
+             photos: imageUrls,
+             author: post.user,
+             textColor: post.textColor || null,
+             fontFamily: post.fontFamily || null,
+             timestamp: post.timestamp,
+             condolences: Array.isArray(post.comments) ? post.comments.map(comment => ({
               id: comment.id || `cond_${Date.now()}_${Math.random()}`,
               author: comment.user || comment.author || 'Anonymous',
               text: comment.text || comment.content || '',
@@ -904,7 +953,7 @@ export default function HaitiSocialApp() {
       console.error(err);
       pushNotif(`❌ Failed to load feed: ${err?.message || "Unknown error"}`);
     }
-  }, [pushNotif]);
+  }, [parseImageUrls, pushNotif]);
 
   const loadProfile = useCallback(async (username) => {
     if (!username) return;
@@ -1123,7 +1172,30 @@ export default function HaitiSocialApp() {
     if (Array.isArray(saved.shadowBannedUsers)) setShadowBannedUsers(saved.shadowBannedUsers);
     if (saved.onboardingDismissedUsers) setOnboardingDismissedUsers(saved.onboardingDismissedUsers);
     if (Array.isArray(saved.musicTracks)) setMusicTracks(saved.musicTracks);
+    const storedTheme = safeParseJson(localStorage.getItem(THEME_STORAGE_KEY));
+    if (storedTheme && typeof storedTheme === "object") {
+      setUserTheme({
+        textColor: storedTheme.textColor || "",
+        fontFamily: storedTheme.fontFamily || "inherit",
+      });
+    }
   }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    if (userTheme?.textColor) {
+      root.style.setProperty("--user-text-color", userTheme.textColor);
+    } else {
+      root.style.removeProperty("--user-text-color");
+    }
+    if (userTheme?.fontFamily) {
+      root.style.setProperty("--user-font", userTheme.fontFamily);
+    } else {
+      root.style.removeProperty("--user-font");
+    }
+    localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(userTheme));
+  }, [userTheme]);
 
   // Save state on changes
   useEffect(() => {
@@ -1343,7 +1415,12 @@ export default function HaitiSocialApp() {
     }
 
     try {
-      await createRemotePost({ content: text.trim(), image: postImage });
+      await createRemotePost({
+        content: text.trim(),
+        image: postImage,
+        textColor: postTextColor,
+        fontFamily: postFontFamily,
+      });
       if (postTextRef.current) postTextRef.current.value = "";
       setPostText("");
       setPostImage(null);
@@ -1355,6 +1432,10 @@ export default function HaitiSocialApp() {
   };
 
   const handleToggleLike = async (postId) => {
+    if (!postId) {
+      pushNotif("⚠️ Unable to like: missing post id");
+      return;
+    }
     if (!currentUser) {
       pushNotif("⚠️ Please log in to like posts");
       return;
@@ -1376,7 +1457,7 @@ export default function HaitiSocialApp() {
     );
 
     try {
-      await toggleRemoteLike(postId);
+      await toggleRemoteLike({ postId });
       await loadFeed();
     } catch (err) {
       pushNotif(`❌ Could not update like: ${err?.message || "Unknown error"}`);
@@ -1385,6 +1466,10 @@ export default function HaitiSocialApp() {
   };
 
   const handleReaction = async (postId, reactionType) => {
+    if (!postId) {
+      pushNotif("⚠️ Unable to react: missing post id");
+      return;
+    }
     if (!currentUser) {
       pushNotif("⚠️ Please log in to react to posts");
       return;
@@ -1407,7 +1492,7 @@ export default function HaitiSocialApp() {
     );
 
     try {
-      await reactToRemotePost(postId, reactionType);
+      await reactToRemotePost({ postId, type: reactionType });
       await loadFeed();
     } catch (err) {
       pushNotif(`❌ Could not react to post: ${err?.message || "Unknown error"}`);
@@ -1416,6 +1501,10 @@ export default function HaitiSocialApp() {
   };
 
   const handleAddComment = async (postId) => {
+    if (!postId) {
+      pushNotif("⚠️ Unable to comment: missing post id");
+      return;
+    }
     const commentText = (commentRefs.current[postId]?.value ?? commentTexts[postId] ?? "").trim();
     if (!commentText) return;
     if (!currentUser) {
@@ -1424,7 +1513,7 @@ export default function HaitiSocialApp() {
     }
 
     try {
-      await addRemoteComment(postId, commentText);
+      await addRemoteComment({ postId, content: commentText });
       if (commentRefs.current[postId]) commentRefs.current[postId].value = "";
       setCommentTexts((prev) => ({ ...prev, [postId]: "" }));
       pushNotif("💬 Comment posted!");
@@ -1700,17 +1789,24 @@ export default function HaitiSocialApp() {
     try {
       let imageUrl = null;
 
-      if (memorialFile) {
+      if (memorialFiles.length > 0) {
         setIsUploadingPhotos(true);
-        const uploadRes = await uploadProfilePhotos({ files: [memorialFile], addToProfile: false });
+        const uploadRes = await uploadProfilePhotos({ files: memorialFiles, addToProfile: false });
         setIsUploadingPhotos(false);
         if (uploadRes && uploadRes.photos && uploadRes.photos.length > 0) {
-          imageUrl = uploadRes.photos[0].photo_url;
+          const urls = uploadRes.photos.map((photo) => photo.photo_url).filter(Boolean);
+          imageUrl = urls.length > 1 ? JSON.stringify(urls) : urls[0];
         }
       }
 
       const content = `${name}${years ? ` (${years})` : ""}\n\n${tribute}`;
-      const created = await createRemotePost({ content, image: imageUrl });
+      const created = await createRemotePost({
+        content,
+        image: imageUrl,
+        textColor: memorialTextColor,
+        fontFamily: memorialFontFamily,
+      });
+      const imageUrls = parseImageUrls(imageUrl);
 
       // Normalize into a memorial object used by the Memorials list
       const newMemorial = {
@@ -1718,7 +1814,8 @@ export default function HaitiSocialApp() {
         name: name.trim(),
         years: years.trim(),
         tribute: tribute.trim(),
-        photo: imageUrl || null,
+        photo: imageUrls[0] || null,
+        photos: imageUrls,
         author: currentUser || created?.user || 'Anonymous',
         timestamp: created?.timestamp || Date.now(),
         condolences: [],
@@ -1730,8 +1827,8 @@ export default function HaitiSocialApp() {
       if (memorialNameRef.current) memorialNameRef.current.value = "";
       if (memorialYearsRef.current) memorialYearsRef.current.value = "";
       if (memorialTributeRef.current) memorialTributeRef.current.value = "";
-      setMemorialPhoto(null);
-      setMemorialFile(null);
+      setMemorialPhotos([]);
+      setMemorialFiles([]);
 
       pushNotif("✅ Memorial created");
       await loadFeed(); // Reload to ensure memorials are up to date
@@ -1992,16 +2089,38 @@ export default function HaitiSocialApp() {
   if (ADMIN_PANEL_ENABLED && showAdminPanel && isAdmin) {
     return (
       <div>
+        <style>{`
+          .glow-title {
+            font-weight: 800;
+            background: linear-gradient(90deg, #ef4444, #3b82f6, #ef4444);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            animation: glowTitleFlow 3.5s ease-in-out infinite;
+            text-shadow:
+              0 0 10px rgba(239, 68, 68, 0.6),
+              0 0 16px rgba(59, 130, 246, 0.55);
+          }
+
+          @keyframes glowTitleFlow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+          }
+        `}</style>
         <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
           <button
             onClick={() => setShowModeratorDashboard(false)}
             style={{ fontWeight: !showModeratorDashboard ? 'bold' : 'normal' }}
+            className="glow-title"
           >
             Admin Panel
           </button>
           <button
             onClick={() => setShowModeratorDashboard(true)}
             style={{ fontWeight: showModeratorDashboard ? 'bold' : 'normal' }}
+            className="glow-title"
           >
             Moderator Dashboard
           </button>
@@ -2077,18 +2196,22 @@ export default function HaitiSocialApp() {
   if (screen === "feed") {
     return (
       <Shell title={`📱 ${trans.feed}`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
-        <Feed
-          trans={trans}
-          postTextRef={postTextRef}
-          postText={postText}
-          postImage={postImage}
-          postImageInputId={postImageInputId}
-          handleImageUpload={handleImageUpload}
-          handleCreatePost={handleCreatePost}
-          posts={posts}
-          openProfile={openProfile}
-          currentUser={currentUser}
-          isAdmin={isAdmin}
+          <Feed
+            trans={trans}
+            postTextRef={postTextRef}
+            postText={postText}
+            postImage={postImage}
+            postImageInputId={postImageInputId}
+            handleImageUpload={handleImageUpload}
+            handleCreatePost={handleCreatePost}
+            postTextColor={postTextColor}
+            postFontFamily={postFontFamily}
+            onPostTextColorChange={setPostTextColor}
+            onPostFontFamilyChange={setPostFontFamily}
+            posts={posts}
+            openProfile={openProfile}
+            currentUser={currentUser}
+            isAdmin={isAdmin}
           toggleSave={toggleSave}
           handleToggleLike={handleToggleLike}
           handleReaction={handleReaction}
@@ -2129,7 +2252,7 @@ export default function HaitiSocialApp() {
       <Shell title={`📰 Haiti News`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
         <div className="p-4">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold">Latest News from Haiti</h2>
+            <h2 className="text-2xl font-bold glow-title">Latest News from Haiti</h2>
             <button
               onClick={() => setShowNewsForm(!showNewsForm)}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-semibold"
@@ -2217,7 +2340,7 @@ export default function HaitiSocialApp() {
       <Shell title={`📅 Community Events`} onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
         <div className="p-4">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold">Upcoming Events</h2>
+            <h2 className="text-2xl font-bold glow-title">Upcoming Events</h2>
             <button
               onClick={() => setShowEventForm(!showEventForm)}
               className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-semibold"
@@ -2495,12 +2618,16 @@ export default function HaitiSocialApp() {
       <Shell title="💐 In Memoriam" onBack={() => setScreen("home")} bgColor={bgColor} textColor={textColor}>
         <Memorials
           memorials={memorials}
-          memorialPhoto={memorialPhoto}
+          memorialPhotos={memorialPhotos}
           memorialNameRef={memorialNameRef}
           memorialYearsRef={memorialYearsRef}
           memorialTributeRef={memorialTributeRef}
-          setMemorialPhoto={setMemorialPhoto}
-          setMemorialFile={setMemorialFile}
+          setMemorialPhotos={setMemorialPhotos}
+          setMemorialFiles={setMemorialFiles}
+          memorialTextColor={memorialTextColor}
+          memorialFontFamily={memorialFontFamily}
+          onMemorialTextColorChange={setMemorialTextColor}
+          onMemorialFontFamilyChange={setMemorialFontFamily}
           handleCreateMemorial={handleCreateMemorial}
           handleAddCondolence={handleAddCondolence}
           isAdmin={isAdmin}
@@ -2598,6 +2725,8 @@ export default function HaitiSocialApp() {
           onSaveProfile={() => handleSaveProfile(u)}
           onChangePassword={() => setScreen("changePassword")}
           onMessage={() => { setCurrentChatUser(u); setScreen("privateMessages"); }}
+          userTheme={userTheme}
+          onUpdateUserTheme={setUserTheme}
 
         />
 

@@ -8,10 +8,6 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { AuthStackParamList } from '../../navigation/AppNavigator';
-import { authAPI } from '../../services/api';
-
 type LoginScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Login'>;
 
 interface Props {

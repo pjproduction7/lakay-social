@@ -6,10 +6,10 @@ export async function fetchPosts() {
   return apiRequest("/posts", { method: "GET" });
 }
 
-export async function createPost({ content, image }) {
+export async function createPost({ content, image, textColor, fontFamily }) {
   return apiRequest("/posts", {
     method: "POST",
-    body: { content, imageUrl: image },
+    body: { content, imageUrl: image, textColor, fontFamily },
     auth: true,
   });
 }

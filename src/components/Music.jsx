@@ -16,7 +16,7 @@ export default function Music({ tracks, onUpload, onToggleSave, onLike, onDislik
           <div className="flex items-center gap-3 mb-3">
             <div className="w-16 h-16 bg-gradient-to-br from-pink-500 to-purple-600 rounded-lg flex items-center justify-center text-3xl">🎵</div>
             <div className="flex-1">
-              <h3 className="font-bold text-lg">{track.title}</h3>
+              <h3 className="font-bold text-lg glow-title">{track.title}</h3>
               <p className="text-sm text-blue-600 cursor-pointer hover:underline" onClick={() => openProfile(track.artist)}>by {track.artist}</p>
             </div>
             <div className="flex gap-2">

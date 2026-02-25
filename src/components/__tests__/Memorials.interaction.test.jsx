@@ -11,12 +11,12 @@ test('clicking Create Memorial calls handleCreateMemorial', async () => {
   render(
     <Memorials
       memorials={[]}
-      memorialPhoto={null}
+      memorialPhotos={[]}
       memorialNameRef={{ current: null }}
       memorialYearsRef={{ current: null }}
       memorialTributeRef={{ current: null }}
-      setMemorialPhoto={() => {}}
-      setMemorialFile={() => {}}
+      setMemorialPhotos={() => {}}
+      setMemorialFiles={() => {}}
       handleCreateMemorial={handleCreateMemorial}
       handleAddCondolence={() => {}}
     />

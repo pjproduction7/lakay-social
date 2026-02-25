@@ -27,6 +27,8 @@ const createPostSchema = z.object({
     .max(200000)
     .nullable()
     .optional(),
+  textColor: z.string().max(32).nullable().optional(),
+  fontFamily: z.string().max(80).nullable().optional(),
 });
 
 const reactionSchema = z.object({
@@ -48,17 +50,19 @@ async function getPostsColumns() {
   }
 
   try {
-    const result = await query(
-      `SELECT column_name
-       FROM information_schema.columns
-       WHERE table_name = 'posts'
-         AND column_name IN ('approved', 'post_type')`
-    );
-    const cols = new Set(result.rows.map((row) => row.column_name));
-    cachedPostsColumns = {
-      hasApproved: cols.has('approved'),
-      hasPostType: cols.has('post_type'),
-    };
+  const result = await query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_name = 'posts'
+       AND column_name IN ('approved', 'post_type', 'text_color', 'font_family')`
+  );
+  const cols = new Set(result.rows.map((row) => row.column_name));
+  cachedPostsColumns = {
+    hasApproved: cols.has('approved'),
+    hasPostType: cols.has('post_type'),
+    hasTextColor: cols.has('text_color'),
+    hasFontFamily: cols.has('font_family'),
+  };
   } catch (err) {
     console.error("Failed to read posts columns; falling back to legacy schema", err);
     cachedPostsColumns = { hasApproved: false, hasPostType: false };
@@ -69,7 +73,7 @@ async function getPostsColumns() {
 }
 
 async function fetchPosts({ ids, limit = 100, user = null } = {}) {
-  const { hasApproved, hasPostType } = await getPostsColumns();
+  const { hasApproved, hasPostType, hasTextColor, hasFontFamily } = await getPostsColumns();
   const hasIds = Array.isArray(ids) && ids.length > 0;
   const params = [];
   let postsQuery = `
@@ -84,6 +88,8 @@ async function fetchPosts({ ids, limit = 100, user = null } = {}) {
       p.reaction_fire,
       ${hasApproved ? "p.approved" : "NULL::boolean as approved"},
       ${hasPostType ? "p.post_type" : "'post'::varchar as post_type"},
+      ${hasTextColor ? "p.text_color" : "NULL::varchar as text_color"},
+      ${hasFontFamily ? "p.font_family" : "NULL::varchar as font_family"},
       p.created_at
     FROM posts p
   `;
@@ -94,7 +100,17 @@ async function fetchPosts({ ids, limit = 100, user = null } = {}) {
   } else {
     // For general feed, only show approved posts unless user is admin
     if (hasApproved && (!user || !user.isAdmin)) {
-      postsQuery += `WHERE p.approved = true`;
+      if (user && user.username) {
+        if (hasPostType) {
+          postsQuery += `WHERE (p.approved = true OR (p.username = $1 AND p.post_type = 'memorial'))`;
+          params.push(user.username);
+        } else {
+          postsQuery += `WHERE (p.approved = true OR p.username = $1)`;
+          params.push(user.username);
+        }
+      } else {
+        postsQuery += `WHERE p.approved = true`;
+      }
     }
   }
 
@@ -113,24 +129,44 @@ async function fetchPosts({ ids, limit = 100, user = null } = {}) {
   }
 
   const postIds = posts.map((p) => p.id);
-  const likesResult = await query(
-    `SELECT post_id, username FROM post_likes WHERE post_id = ANY($1::int[])`,
-    [postIds]
-  );
-  const commentsResult = await query(
-    `SELECT id, post_id, username, content, created_at
-     FROM post_comments
-     WHERE post_id = ANY($1::int[])
-     ORDER BY created_at ASC`,
-    [postIds]
-  );
+  let likesRows = [];
+  let commentsRows = [];
+
+  try {
+    const likesResult = await query(
+      `SELECT post_id, username FROM post_likes WHERE post_id = ANY($1::int[])`,
+      [postIds]
+    );
+    likesRows = likesResult.rows;
+  } catch (err) {
+    console.error("Failed to load post likes:", {
+      code: err && err.code ? err.code : undefined,
+      message: err && err.message ? err.message : err,
+    });
+  }
+
+  try {
+    const commentsResult = await query(
+      `SELECT id, post_id, username, content, created_at
+       FROM post_comments
+       WHERE post_id = ANY($1::int[])
+       ORDER BY created_at ASC`,
+      [postIds]
+    );
+    commentsRows = commentsResult.rows;
+  } catch (err) {
+    console.error("Failed to load post comments:", {
+      code: err && err.code ? err.code : undefined,
+      message: err && err.message ? err.message : err,
+    });
+  }
 
   const likesMap = postIds.reduce((acc, id) => {
     acc[id] = [];
     return acc;
   }, {});
 
-  likesResult.rows.forEach((row) => {
+  likesRows.forEach((row) => {
     likesMap[row.post_id]?.push(row.username);
   });
 
@@ -139,7 +175,7 @@ async function fetchPosts({ ids, limit = 100, user = null } = {}) {
     return acc;
   }, {});
 
-  commentsResult.rows.forEach((row) => {
+  commentsRows.forEach((row) => {
     commentsMap[row.post_id]?.push({
       id: row.id,
       user: row.username,
@@ -161,6 +197,8 @@ async function fetchPosts({ ids, limit = 100, user = null } = {}) {
       fire: Number(post.reaction_fire) || 0,
     },
     comments: commentsMap[post.id] || [],
+    textColor: post.text_color || null,
+    fontFamily: post.font_family || null,
     timestamp: post.created_at,
   }));
 }
@@ -175,16 +213,31 @@ router.get("/", optionalAuth, async (req, res) => {
         console.error('Failed to verify admin status', e);
       }
     }
-    const posts = await fetchPosts({ user: { isAdmin } });
+    const posts = await fetchPosts({ user: { isAdmin, username: req.user?.username } });
     res.json(posts);
   } catch (err) {
-    console.error(err);
+    console.error("Failed to load posts:", {
+      code: err && err.code ? err.code : undefined,
+      message: err && err.message ? err.message : err,
+      stack: err && err.stack ? err.stack : undefined,
+    });
     res.status(500).json({ error: "Failed to load posts" });
   }
 });
 
 router.post("/", requireAuth, async (req, res) => {
-  console.log('POST /posts request body:', req.body);
+  try {
+    const body = req.body || {};
+    console.log('POST /posts request', {
+      user: req.user ? { id: req.user.id, username: req.user.username } : null,
+      contentLength: typeof body.content === 'string' ? body.content.length : 0,
+      imageUrlLength: typeof body.imageUrl === 'string' ? body.imageUrl.length : 0,
+      textColor: body.textColor || null,
+      fontFamily: body.fontFamily || null,
+    });
+  } catch (logErr) {
+    console.error('POST /posts debug log failed', logErr);
+  }
   const parse = createPostSchema.safeParse(req.body);
   console.log('Parse result:', parse);
   if (!parse.success) {
@@ -192,33 +245,63 @@ router.post("/", requireAuth, async (req, res) => {
     return res.status(400).json({ error: parse.error.flatten().fieldErrors });
   }
 
-  const { content, imageUrl = null } = parse.data;
+  const { content, imageUrl = null, textColor = null, fontFamily = null } = parse.data;
   
   // Check if this is a memorial (content contains double newline indicating name/tribute format)
   const isMemorial = content.includes('\n\n');
   const postType = isMemorial ? 'memorial' : 'post';
-  const approved = isMemorial ? false : true;
+  const approved = true;
   
   try {
-    const { hasApproved, hasPostType } = await getPostsColumns();
-    const insert = hasApproved || hasPostType
-      ? await query(
-          `INSERT INTO posts (user_id, username, content, image_url, post_type, approved)
-           VALUES ($1, $2, $3, $4, $5, $6)
-           RETURNING id`,
-          [req.user.id, req.user.username, content, imageUrl, postType, approved]
-        )
-      : await query(
-          `INSERT INTO posts (user_id, username, content, image_url)
-           VALUES ($1, $2, $3, $4)
-           RETURNING id`,
-          [req.user.id, req.user.username, content, imageUrl]
-        );
+    const { hasApproved, hasPostType, hasTextColor, hasFontFamily } = await getPostsColumns();
+    const hasStyle = hasTextColor || hasFontFamily;
+    let insert;
+    if (hasApproved || hasPostType || hasStyle) {
+      const columns = ["user_id", "username", "content", "image_url"];
+      const values = [req.user.id, req.user.username, content, imageUrl];
+      if (hasPostType) {
+        columns.push("post_type");
+        values.push(postType);
+      }
+      if (hasApproved) {
+        columns.push("approved");
+        values.push(approved);
+      }
+      if (hasTextColor) {
+        columns.push("text_color");
+        values.push(textColor);
+      }
+      if (hasFontFamily) {
+        columns.push("font_family");
+        values.push(fontFamily);
+      }
+      const params = values.map((_, idx) => `$${idx + 1}`).join(", ");
+      insert = await query(
+        `INSERT INTO posts (${columns.join(", ")})
+         VALUES (${params})
+         RETURNING id`,
+        values
+      );
+    } else {
+      insert = await query(
+        `INSERT INTO posts (user_id, username, content, image_url)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [req.user.id, req.user.username, content, imageUrl]
+      );
+    }
 
     const [post] = await fetchPosts({ ids: [insert.rows[0].id] });
     res.status(201).json(post);
   } catch (err) {
-    console.error(err);
+    console.error('Failed to create post', {
+      message: err?.message || err,
+      code: err?.code,
+      detail: err?.detail,
+      constraint: err?.constraint,
+      table: err?.table,
+      stack: err?.stack,
+    });
     res.status(500).json({ error: "Failed to create post" });
   }
 });
@@ -340,8 +423,9 @@ router.put("/:postId", requireAuth, async (req, res) => {
 
   try {
     // Check ownership or admin
+    const { hasPostType } = await getPostsColumns();
     const postResult = await query(
-      `SELECT user_id, username FROM posts WHERE id = $1`,
+      `SELECT user_id, username${hasPostType ? ", post_type" : ""} FROM posts WHERE id = $1`,
       [postId]
     );
     if (postResult.rowCount === 0) {
@@ -350,8 +434,9 @@ router.put("/:postId", requireAuth, async (req, res) => {
     const post = postResult.rows[0];
     const isOwner = req.user.id === post.user_id;
     const isAdmin = req.user.username.toLowerCase() === (process.env.ADMIN_USERNAME || "admin").toLowerCase();
-    
-    if (!isOwner && !isAdmin) {
+    const isMemorial = (post.post_type || "post") === "memorial";
+
+    if (!isOwner && (!isAdmin || isMemorial)) {
       return res.status(403).json({ error: "You can only edit your own posts" });
     }
 
@@ -377,8 +462,9 @@ router.delete("/:postId", requireAuth, async (req, res) => {
 
   try {
     // Check ownership or admin
+    const { hasPostType } = await getPostsColumns();
     const postResult = await query(
-      `SELECT user_id, username FROM posts WHERE id = $1`,
+      `SELECT user_id, username${hasPostType ? ", post_type" : ""} FROM posts WHERE id = $1`,
       [postId]
     );
     if (postResult.rowCount === 0) {
@@ -387,8 +473,9 @@ router.delete("/:postId", requireAuth, async (req, res) => {
     const post = postResult.rows[0];
     const isOwner = req.user.id === post.user_id;
     const isAdmin = req.user.username.toLowerCase() === (process.env.ADMIN_USERNAME || "admin").toLowerCase();
-    
-    if (!isOwner && !isAdmin) {
+    const isMemorial = (post.post_type || "post") === "memorial";
+
+    if (!isOwner && (!isAdmin || isMemorial)) {
       return res.status(403).json({ error: "You can only delete your own posts" });
     }
 
