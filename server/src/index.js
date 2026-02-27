@@ -76,7 +76,7 @@ app.get('/secret-test', (req, res) => {
 
 const rawAdminUsername = process.env.ADMIN_USERNAME || "admin";
 const ADMIN_USERNAME = rawAdminUsername.trim().toLowerCase();
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 // Configure Helmet: disable CSP in development so DevTools and websocket probes work freely
 const helmetOptions = process.env.NODE_ENV === 'production' ? {
@@ -111,7 +111,8 @@ const getOriginInfo = (origin) => {
 const defaultAllowedOrigins = [
   "https://lakaysocial.com",
   "https://www.lakaysocial.com",
-  "https://lakay-social-production-361d.up.railway.app"
+  "https://lakay-social-production-361d.up.railway.app",
+  "https://lakay-social-production-fee1.up.railway.app"
 ];
 
 const envAllowedOrigins = (process.env.ALLOWED_ORIGINS || "")
@@ -260,7 +261,8 @@ app.use('/uploads', (req, res, next) => {
     'http://localhost:5176',
     'https://lakaysocial.com',
     'https://www.lakaysocial.com',
-    'https://lakay-social-production-361d.up.railway.app'
+    'https://lakay-social-production-361d.up.railway.app',
+    'https://lakay-social-production-fee1.up.railway.app'
   ];
   if (origin && allowed.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
@@ -383,11 +385,7 @@ async function ensureAdminUser() {
     [normalizedUsername]
   );
   if (existing.rowCount > 0) {
-    var user = existing.rows[0];
-    var passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
-    await query("UPDATE users SET password_hash = $2 WHERE id = $1", [user.id, passwordHash]);
-    var verify = await bcrypt.compare(ADMIN_PASSWORD, passwordHash);
-    console.log("? Synced admin password for " + normalizedUsername + " (" + (verify ? "verified" : "mismatch") + ")");
+    console.log("? Admin user already exists; skipping password sync for " + normalizedUsername);
     return;
   }
   var passwordHash2 = await bcrypt.hash(ADMIN_PASSWORD, 12);

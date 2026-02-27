@@ -311,6 +311,7 @@ export default function AdminPanel({
   };
 
   const manageableUsers = allUsers.filter(u => u !== currentUser);
+  const passwordResetUsers = allUsers;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -413,7 +414,7 @@ export default function AdminPanel({
                 className="w-full mb-3 p-2 rounded-lg bg-gray-900/50 border border-white/10 text-white"
               >
                 <option value="">Select user</option>
-                {manageableUsers.map(user => (
+                {passwordResetUsers.map(user => (
                   <option key={user} value={user}>{user}</option>
                 ))}
               </select>
@@ -452,6 +453,9 @@ export default function AdminPanel({
               >
                 Reset Password
               </button>
+              <p className="mt-2 text-xs text-white/70">
+                You can reset your own admin password here.
+              </p>
             </div>
           </div>
 

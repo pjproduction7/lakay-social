@@ -30,6 +30,10 @@ const loginSchema = z.object({
 const signupSchema = loginSchema.extend({
   email: z.string().email(),
 });
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8).max(128),
+});
 
 router.post("/signup", authLimiter, async (req, res) => {
   const parse = signupSchema.safeParse(req.body);
@@ -203,6 +207,39 @@ router.post("/refresh", async (req, res) => {
     res.json({ accessToken });
   } catch (err) {
     return res.status(401).json({ error: "Invalid refresh token" });
+  }
+});
+
+// Change password for the currently authenticated user
+router.post("/change-password", requireAuth, async (req, res) => {
+  const parse = changePasswordSchema.safeParse(req.body);
+  if (!parse.success) {
+    return res.status(400).json({ error: parse.error.flatten().fieldErrors });
+  }
+
+  const { currentPassword, newPassword } = parse.data;
+  if (currentPassword === newPassword) {
+    return res.status(400).json({ error: "New password must be different from the current password" });
+  }
+
+  try {
+    const result = await query("SELECT password_hash FROM users WHERE id = $1", [req.user.id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = result.rows[0];
+    const valid = await bcrypt.compare(currentPassword, user.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+
+    const hash = await bcrypt.hash(newPassword, 12);
+    await query("UPDATE users SET password_hash = $1 WHERE id = $2", [hash, req.user.id]);
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    console.error("Change password failed:", err);
+    res.status(500).json({ error: "Failed to change password" });
   }
 });
 

@@ -11,10 +11,14 @@ dotenv.config({ path: envPath });
 const { DATABASE_URL } = process.env;
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@lakaysocial.com';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 if (!DATABASE_URL) {
-  console.error('❌ DATABASE_URL is missing. Add it to .env.local before running this script.');
+  console.error('DATABASE_URL is missing. Add it to .env.local before running this script.');
+  process.exit(1);
+}
+if (!ADMIN_PASSWORD) {
+  console.error('ADMIN_PASSWORD is missing. Add it to .env.local before running this script.');
   process.exit(1);
 }
 
@@ -47,14 +51,12 @@ async function addAdmin() {
       );
     }
 
-    console.log('✅ Admin user ready!');
+    console.log('Admin user ready!');
     console.log(`Username: ${ADMIN_USERNAME}`);
-    console.log(`Password: ${ADMIN_PASSWORD}`);
-    console.log('\n⚠️  IMPORTANT: Change this password immediately at lakaysocial.com/settings\n');
 
     await connection.end();
   } catch (error) {
-    console.error('❌ Error:', error.message);
+    console.error('Error:', error.message);
     process.exit(1);
   }
 }

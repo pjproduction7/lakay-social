@@ -181,8 +181,13 @@ export default function Feed({
                       <button
                         onClick={() => {
                           const newContent = prompt("Edit post content:", post.content);
-                          if (newContent && newContent.trim() !== post.content) {
-                            onEditPost(post.id, newContent.trim());
+                          if (newContent === null) return;
+                          const newColor = prompt("Edit text color (hex):", post.textColor || "");
+                          if (newColor === null) return;
+                          const nextContent = newContent.trim() || post.content;
+                          const nextColor = newColor.trim() || null;
+                          if (nextContent !== post.content || nextColor !== (post.textColor || null)) {
+                            onEditPost(post.id, nextContent, { textColor: nextColor });
                           }
                         }}
                         className="text-white hover:scale-110 transition"

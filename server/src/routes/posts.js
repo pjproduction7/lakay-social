@@ -65,7 +65,7 @@ async function getPostsColumns() {
   };
   } catch (err) {
     console.error("Failed to read posts columns; falling back to legacy schema", err);
-    cachedPostsColumns = { hasApproved: false, hasPostType: false };
+    cachedPostsColumns = { hasApproved: false, hasPostType: false, hasTextColor: false, hasFontFamily: false };
   }
 
   postsColumnsCheckedAt = now;
@@ -189,6 +189,7 @@ async function fetchPosts({ ids, limit = 100, user = null } = {}) {
     user: post.username,
     content: post.content,
     image: post.image_url,
+    postType: post.post_type || "post",
     likes: likesMap[post.id] || [],
     reactions: {
       like: Number(post.reaction_like) || 0,
@@ -419,11 +420,11 @@ router.put("/:postId", requireAuth, async (req, res) => {
     return res.status(400).json({ error: parse.error.flatten().fieldErrors });
   }
 
-  const { content, imageUrl = null } = parse.data;
+  const { content, imageUrl, textColor, fontFamily } = parse.data;
 
   try {
     // Check ownership or admin
-    const { hasPostType } = await getPostsColumns();
+    const { hasPostType, hasTextColor, hasFontFamily } = await getPostsColumns();
     const postResult = await query(
       `SELECT user_id, username${hasPostType ? ", post_type" : ""} FROM posts WHERE id = $1`,
       [postId]
@@ -434,15 +435,34 @@ router.put("/:postId", requireAuth, async (req, res) => {
     const post = postResult.rows[0];
     const isOwner = req.user.id === post.user_id;
     const isAdmin = req.user.username.toLowerCase() === (process.env.ADMIN_USERNAME || "admin").toLowerCase();
-    const isMemorial = (post.post_type || "post") === "memorial";
 
-    if (!isOwner && (!isAdmin || isMemorial)) {
+    if (!isOwner && !isAdmin) {
       return res.status(403).json({ error: "You can only edit your own posts" });
     }
 
+    const updates = ["content = $1"];
+    const values = [content];
+
+    if (typeof imageUrl !== "undefined") {
+      values.push(imageUrl);
+      updates.push(`image_url = $${values.length}`);
+    }
+
+    if (hasTextColor && typeof textColor !== "undefined") {
+      values.push(textColor);
+      updates.push(`text_color = $${values.length}`);
+    }
+
+    if (hasFontFamily && typeof fontFamily !== "undefined") {
+      values.push(fontFamily);
+      updates.push(`font_family = $${values.length}`);
+    }
+
+    values.push(postId);
+
     await query(
-      `UPDATE posts SET content = $1, image_url = $2 WHERE id = $3`,
-      [content, imageUrl, postId]
+      `UPDATE posts SET ${updates.join(", ")} WHERE id = $${values.length}`,
+      values
     );
 
     const [updatedPost] = await fetchPosts({ ids: [postId] });
@@ -473,9 +493,8 @@ router.delete("/:postId", requireAuth, async (req, res) => {
     const post = postResult.rows[0];
     const isOwner = req.user.id === post.user_id;
     const isAdmin = req.user.username.toLowerCase() === (process.env.ADMIN_USERNAME || "admin").toLowerCase();
-    const isMemorial = (post.post_type || "post") === "memorial";
 
-    if (!isOwner && (!isAdmin || isMemorial)) {
+    if (!isOwner && !isAdmin) {
       return res.status(403).json({ error: "You can only delete your own posts" });
     }
 

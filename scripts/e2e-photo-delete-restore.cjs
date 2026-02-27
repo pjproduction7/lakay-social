@@ -7,10 +7,15 @@ const fetch = global.fetch;
 
     // 1) Login
     console.log('Logging in as admin...');
+    const username = process.env.ADMIN_USERNAME || 'admin';
+    const password = process.env.ADMIN_PASSWORD;
+    if (!password) {
+      throw new Error('ADMIN_PASSWORD is not set');
+    }
     let r = await fetch(`${base}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: 'admin123' })
+      body: JSON.stringify({ username, password })
     });
     if (!r.ok) throw new Error(`Login failed: ${r.status} ${await r.text()}`);
     const loginJson = await r.json();
@@ -18,9 +23,9 @@ const fetch = global.fetch;
     console.log('Got token (len):', token ? token.length : 'none');
 
     // 2) Get profile
-    const username = loginJson.user.username;
-    console.log('Fetching profile for', username);
-    r = await fetch(`${base}/profiles/${username}`);
+    const targetUser = loginJson.user.username;
+    console.log('Fetching profile for', targetUser);
+    r = await fetch(`${base}/profiles/${targetUser}`);
     if (!r.ok) throw new Error(`Profile fetch failed: ${r.status} ${await r.text()}`);
     let profile = await r.json();
     console.log('Profile photos count:', (profile.photos || []).length);
@@ -61,7 +66,7 @@ const fetch = global.fetch;
     console.log('Delete status', r.status, 'body', await r.text());
 
     // 5) Confirm delete via GET profile
-    r = await fetch(`${base}/profiles/${username}`);
+    r = await fetch(`${base}/profiles/${targetUser}`);
     profile = await r.json();
     const foundAfterDelete = (profile.photos || []).find(p => p.id === targetPhotoId);
     console.log('Found after delete?', Boolean(foundAfterDelete));
@@ -75,7 +80,7 @@ const fetch = global.fetch;
     console.log('Restore status', r.status, 'body', await r.text());
 
     // 7) Confirm restore via GET profile
-    r = await fetch(`${base}/profiles/${username}`);
+    r = await fetch(`${base}/profiles/${targetUser}`);
     profile = await r.json();
     const foundAfterRestore = (profile.photos || []).find(p => p.id === targetPhotoId);
     console.log('Found after restore?', Boolean(foundAfterRestore));

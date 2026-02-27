@@ -27,7 +27,11 @@ async function checkAdmin() {
     console.log('Password hash:', user.password_hash.substring(0, 20) + '...');
     
     // Test password
-    const match = await bcrypt.compare('Titoutou7@Delmas19', user.password_hash);
+    const testPassword = process.env.ADMIN_PASSWORD || '';
+    if (!testPassword) {
+      throw new Error('ADMIN_PASSWORD is not set');
+    }
+    const match = await bcrypt.compare(testPassword, user.password_hash);
     console.log('\n🔐 Password test:', match ? '✅ MATCH' : '❌ NO MATCH');
     
   } catch (err) {

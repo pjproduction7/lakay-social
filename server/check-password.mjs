@@ -11,9 +11,12 @@ async function checkPassword() {
     const user = result.rows[0];
     console.log("Admin user:", user);
 
-    const password = "7Titoutou7@Delmas19";
+    const password = process.env.ADMIN_PASSWORD || "";
+    if (!password) {
+      throw new Error("ADMIN_PASSWORD is not set");
+    }
     const valid = await bcrypt.compare(password, user.password_hash);
-    console.log("Password check for '7Titoutou7@Delmas19':", valid);
+    console.log("Password check for ADMIN_PASSWORD:", valid);
 
     // Also check if the hash was created correctly
     const hash = await bcrypt.hash(password, 12);

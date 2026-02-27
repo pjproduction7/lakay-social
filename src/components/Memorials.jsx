@@ -131,14 +131,28 @@ export default function Memorials({
               <p className="text-sm text-gray-500">Posted by {memorial.author}</p>
             </div>
             <div className="flex gap-2">
-              {(currentUser === memorial.author) && (
+              {(currentUser === memorial.author || isAdmin) && (
                 <button
                   onClick={() => {
                     const newName = prompt("Edit person's name:", memorial.name);
                     const newYears = prompt("Edit years (e.g., 1950-2023):", memorial.years);
                     const newTribute = prompt("Edit tribute:", memorial.tribute);
-                    if (newName && newTribute && newName.trim() !== memorial.name || newYears !== memorial.years || newTribute.trim() !== memorial.tribute) {
-                      onEditMemorial(memorial.id, newName.trim(), newYears?.trim() || "", newTribute.trim());
+                    if (newName === null || newYears === null || newTribute === null) return;
+                    const newColor = prompt("Edit text color (hex):", memorial.textColor || "");
+                    if (newColor === null) return;
+                    const newFont = prompt("Edit font family:", memorial.fontFamily || "inherit");
+                    if (newFont === null) return;
+                    if (
+                      (newName && newTribute && newName.trim() !== memorial.name) ||
+                      newYears !== memorial.years ||
+                      newTribute.trim() !== memorial.tribute ||
+                      newColor.trim() !== (memorial.textColor || "") ||
+                      newFont.trim() !== (memorial.fontFamily || "inherit")
+                    ) {
+                      onEditMemorial(memorial.id, newName.trim(), newYears?.trim() || "", newTribute.trim(), {
+                        textColor: newColor.trim() || null,
+                        fontFamily: newFont.trim() || null,
+                      });
                     }
                   }}
                   className="text-purple-600 hover:text-purple-800 hover:scale-110 transition p-2"
@@ -147,7 +161,7 @@ export default function Memorials({
                   <Edit size={20} />
                 </button>
               )}
-              {(currentUser === memorial.author) && (
+              {(currentUser === memorial.author || isAdmin) && (
                 <button
                   onClick={() => onDeleteMemorial(memorial.id)}
                   className="text-red-600 hover:text-red-800 hover:scale-110 transition p-2"

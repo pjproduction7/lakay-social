@@ -101,6 +101,14 @@ export async function adminResetPassword(username, newPassword) {
   });
 }
 
+export async function changePassword({ currentPassword, newPassword }) {
+  return apiRequest("/auth/change-password", {
+    method: "POST",
+    body: { currentPassword, newPassword },
+    auth: true,
+  });
+}
+
 export async function getAllPosts() {
   return apiRequest("/admin/posts", {
     method: "GET",

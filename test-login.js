@@ -1,7 +1,13 @@
+const username = process.env.ADMIN_USERNAME || 'admin';
+const password = process.env.ADMIN_PASSWORD;
+if (!password) {
+  throw new Error('ADMIN_PASSWORD is not set');
+}
+
 const response = await fetch('http://localhost:4000/auth/login', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ username: 'admin', password: 'admin123' })
+  body: JSON.stringify({ username, password })
 });
 
 const data = await response.json();

@@ -37,10 +37,10 @@ export async function addComment({ postId, content }) {
   });
 }
 
-export async function updatePost(postId, { content }) {
+export async function updatePost(postId, { content, image, textColor, fontFamily }) {
   return apiRequest(`/posts/${postId}`, {
     method: "PUT",
-    body: { content },
+    body: { content, imageUrl: image, textColor, fontFamily },
     auth: true,
   });
 }

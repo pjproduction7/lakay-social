@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Star, Camera, X } from "lucide-react";
+import { Star, Camera, X, Edit, Trash2, MessageSquare } from "lucide-react";
 
 // Components
 import SpinningLogo from '../components/shared/SpinningLogo';
@@ -31,6 +31,7 @@ import Politics from '../components/Politics';
 import useGoogleTranslate from '../hooks/useGoogleTranslate';
 import useChatSocket from '../hooks/useChatSocket';
 import { mergePrivateMessage } from '../utils/privateMessages';
+import EmojiPicker from '../components/shared/EmojiPicker';
 
 const THEME_STORAGE_KEY = "lakay_user_theme";
 
@@ -156,19 +157,25 @@ export default function HaitiSocialApp() {
       id: 1,
       title: "Haiti Reconstruction Progress",
       content: "Latest updates on infrastructure development and international aid efforts.",
-      timestamp: "2 hours ago"
+      timestamp: "2 hours ago",
+      textColor: "#1f2937",
+      comments: []
     },
     {
       id: 2,
       title: "Cultural Festival Announced",
       content: "Annual Haitian cultural festival dates and locations revealed.",
-      timestamp: "1 day ago"
+      timestamp: "1 day ago",
+      textColor: "#1f2937",
+      comments: []
     },
     {
       id: 3,
       title: "Economic Development Initiatives",
       content: "New programs aimed at boosting local entrepreneurship.",
-      timestamp: "3 days ago"
+      timestamp: "3 days ago",
+      textColor: "#1f2937",
+      comments: []
     }
   ]);
   const [events, setEvents] = useState([
@@ -177,21 +184,27 @@ export default function HaitiSocialApp() {
       title: "Haitian Independence Day Celebration",
       description: "Join us for a day of cultural celebration and community gathering.",
       date: "January 1st",
-      location: "Port-au-Prince"
+      location: "Port-au-Prince",
+      textColor: "#1f2937",
+      comments: []
     },
     {
       id: 2,
       title: "Community Health Fair",
       description: "Free health screenings and wellness workshops.",
       date: "February 15th",
-      location: "Cap-Haïtien"
+      location: "Cap-Haitien",
+      textColor: "#1f2937",
+      comments: []
     },
     {
       id: 3,
       title: "Youth Leadership Conference",
       description: "Empowering the next generation of Haitian leaders.",
       date: "March 20th",
-      location: "Port-au-Prince"
+      location: "Port-au-Prince",
+      textColor: "#1f2937",
+      comments: []
     }
   ]);
 
@@ -200,6 +213,10 @@ export default function HaitiSocialApp() {
   const [newNewsContent, setNewNewsContent] = useState("");
   const [newNewsImage, setNewNewsImage] = useState(null);
   const [showNewsForm, setShowNewsForm] = useState(false);
+  const [newNewsTextColor, setNewNewsTextColor] = useState("#1f2937");
+  const [newsEmojiOpen, setNewsEmojiOpen] = useState(false);
+  const newsContentRef = useRef(null);
+  const [newsCommentTexts, setNewsCommentTexts] = useState({});
 
   // Events form state
   const [newEventTitle, setNewEventTitle] = useState("");
@@ -208,6 +225,10 @@ export default function HaitiSocialApp() {
   const [newEventLocation, setNewEventLocation] = useState("");
   const [newEventImage, setNewEventImage] = useState(null);
   const [showEventForm, setShowEventForm] = useState(false);
+  const [newEventTextColor, setNewEventTextColor] = useState("#1f2937");
+  const [eventEmojiOpen, setEventEmojiOpen] = useState(false);
+  const eventDescriptionRef = useRef(null);
+  const [eventCommentTexts, setEventCommentTexts] = useState({});
 
   const openDeleteModal = (photoId) => {
     setDeletePhotoId(photoId);
@@ -232,13 +253,17 @@ export default function HaitiSocialApp() {
       title: newNewsTitle.trim(),
       content: newNewsContent.trim(),
       image: newNewsImage,
-      timestamp: "Just now"
+      timestamp: "Just now",
+      textColor: newNewsTextColor,
+      author: currentUser || "Admin",
+      comments: []
     };
 
     setNewsArticles(prev => [newArticle, ...prev]);
     setNewNewsTitle("");
     setNewNewsContent("");
     setNewNewsImage(null);
+    setNewNewsTextColor("#1f2937");
     setShowNewsForm(false);
     pushNotif("✅ News article added successfully!");
   };
@@ -255,7 +280,10 @@ export default function HaitiSocialApp() {
       description: newEventDescription.trim(),
       date: newEventDate.trim(),
       location: newEventLocation.trim(),
-      image: newEventImage
+      image: newEventImage,
+      textColor: newEventTextColor,
+      author: currentUser || "Admin",
+      comments: []
     };
 
     setEvents(prev => [newEvent, ...prev]);
@@ -264,8 +292,133 @@ export default function HaitiSocialApp() {
     setNewEventDate("");
     setNewEventLocation("");
     setNewEventImage(null);
+    setNewEventTextColor("#1f2937");
     setShowEventForm(false);
     pushNotif("✅ Event added successfully!");
+  };
+
+  const insertEmojiAtCursor = (ref, value, setter, emoji) => {
+    if (!emoji) return;
+    const el = ref?.current;
+    if (!el) {
+      setter((prev) => `${prev || ""}${emoji}`);
+      return;
+    }
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? value.length;
+    const next = `${value.slice(0, start)}${emoji}${value.slice(end)}`;
+    setter(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const cursor = start + emoji.length;
+      el.setSelectionRange(cursor, cursor);
+    });
+  };
+
+  const handleEditNews = (articleId) => {
+    const target = newsArticles.find((a) => a.id === articleId);
+    if (!target) return;
+    const title = prompt("Edit news title:", target.title);
+    if (title === null) return;
+    const content = prompt("Edit news content:", target.content);
+    if (content === null) return;
+    const color = prompt("Text color (hex):", target.textColor || "");
+    if (color === null) return;
+
+    setNewsArticles((prev) =>
+      prev.map((article) =>
+        article.id === articleId
+          ? {
+              ...article,
+              title: title.trim() || article.title,
+              content: content.trim() || article.content,
+              textColor: color.trim() || null,
+            }
+          : article
+      )
+    );
+    pushNotif("✏️ News updated");
+  };
+
+  const handleDeleteNews = (articleId) => {
+    if (!confirm("Delete this news article?")) return;
+    setNewsArticles((prev) => prev.filter((article) => article.id !== articleId));
+    pushNotif("🗑️ News deleted");
+  };
+
+  const handleAddNewsComment = (articleId) => {
+    const text = (newsCommentTexts[articleId] || "").trim();
+    if (!text) return;
+    const comment = {
+      id: `c_${Date.now()}`,
+      author: currentUser || "Guest",
+      text,
+      timestamp: new Date().toLocaleString(),
+    };
+    setNewsArticles((prev) =>
+      prev.map((article) =>
+        article.id === articleId
+          ? { ...article, comments: [...(article.comments || []), comment] }
+          : article
+      )
+    );
+    setNewsCommentTexts((prev) => ({ ...prev, [articleId]: "" }));
+  };
+
+  const handleEditEvent = (eventId) => {
+    const target = events.find((e) => e.id === eventId);
+    if (!target) return;
+    const title = prompt("Edit event title:", target.title);
+    if (title === null) return;
+    const description = prompt("Edit event description:", target.description);
+    if (description === null) return;
+    const date = prompt("Edit event date:", target.date);
+    if (date === null) return;
+    const location = prompt("Edit event location:", target.location);
+    if (location === null) return;
+    const color = prompt("Text color (hex):", target.textColor || "");
+    if (color === null) return;
+
+    setEvents((prev) =>
+      prev.map((event) =>
+        event.id === eventId
+          ? {
+              ...event,
+              title: title.trim() || event.title,
+              description: description.trim() || event.description,
+              date: date.trim() || event.date,
+              location: location.trim() || event.location,
+              textColor: color.trim() || null,
+            }
+          : event
+      )
+    );
+    pushNotif("✏️ Event updated");
+  };
+
+  const handleDeleteEvent = (eventId) => {
+    if (!confirm("Delete this event?")) return;
+    setEvents((prev) => prev.filter((event) => event.id !== eventId));
+    pushNotif("🗑️ Event deleted");
+  };
+
+  const handleAddEventComment = (eventId) => {
+    const text = (eventCommentTexts[eventId] || "").trim();
+    if (!text) return;
+    const comment = {
+      id: `c_${Date.now()}`,
+      author: currentUser || "Guest",
+      text,
+      timestamp: new Date().toLocaleString(),
+    };
+    setEvents((prev) =>
+      prev.map((event) =>
+        event.id === eventId
+          ? { ...event, comments: [...(event.comments || []), comment] }
+          : event
+      )
+    );
+    setEventCommentTexts((prev) => ({ ...prev, [eventId]: "" }));
   };
 
   // Pending deletion state (for optimistic undo)
@@ -873,13 +1026,18 @@ export default function HaitiSocialApp() {
   const loadFeed = useCallback(async () => {
     try {
       const remotePosts = await fetchPosts();
-      const formatted = remotePosts.map((post) => ({
+      const formatted = remotePosts.map((post) => {
+        const content = post.content || "";
+        const looksLikeMemorial = content.includes("\n\n");
+        const postType = post.postType || (looksLikeMemorial ? "memorial" : "post");
+        return {
         id: post.id,
         user: post.user,
-        content: post.content,
+        content: content,
         image: parseImageUrls(post.image)[0] || null,
         textColor: post.textColor || null,
         fontFamily: post.fontFamily || null,
+        postType,
         likes: Array.isArray(post.likes) ? post.likes : [],
         reactions: {
           like: post.reactions?.like || 0,
@@ -889,22 +1047,24 @@ export default function HaitiSocialApp() {
         },
         comments: Array.isArray(post.comments) ? post.comments : [],
         timestamp: post.timestamp,
-      }));
+      };
+      });
 
       const invalidPosts = formatted.filter((post) => !post.id);
       if (invalidPosts.length > 0) {
         console.warn("loadFeed: posts missing id", invalidPosts);
       }
 
-      const filtered = formatted.filter((post) => post.id);
+      const filtered = formatted.filter((post) => post.id && post.postType !== "memorial");
       setPosts(filtered);
       console.log(`loadFeed -> ${filtered.length} posts`);
 
       // Load memorials from posts
       const memorialsFromPosts = remotePosts
         .filter(post => {
+          if (post.postType === "memorial") return true;
           // Memorials have content with double newline separating name/years from tribute
-          const lines = post.content.split('\n');
+          const lines = (post.content || "").split('\n');
           return lines.length >= 2 && lines[1] === '';
         })
          .map(post => {
@@ -1165,6 +1325,8 @@ export default function HaitiSocialApp() {
     if (Array.isArray(saved.messages)) setMessages(saved.messages);
     if (Array.isArray(saved.privateMessages)) setPrivateMessages(saved.privateMessages);
     if (saved.following) setFollowing(saved.following);
+    if (Array.isArray(saved.newsArticles)) setNewsArticles(saved.newsArticles);
+    if (Array.isArray(saved.events)) setEvents(saved.events);
     if (Array.isArray(saved.schools)) setSchools(saved.schools);
     if (Array.isArray(saved.classmatesPosts)) setClassmatesPosts(saved.classmatesPosts);
     if (Array.isArray(saved.moderators)) setModerators(saved.moderators);
@@ -1208,6 +1370,8 @@ export default function HaitiSocialApp() {
       messages,
       privateMessages,
       following,
+      newsArticles,
+      events,
       schools,
       classmatesPosts,
       currentUser,
@@ -1228,6 +1392,8 @@ export default function HaitiSocialApp() {
     messages,
     privateMessages,
     following,
+    newsArticles,
+    events,
     schools,
     classmatesPosts,
     currentUser,
@@ -1523,14 +1689,19 @@ export default function HaitiSocialApp() {
     }
   };
 
-  const handleEditPost = async (postId, newContent) => {
+  const handleEditPost = async (postId, newContent, options = {}) => {
     if (!currentUser) {
       pushNotif("⚠️ Please log in to edit posts");
       return;
     }
 
     try {
-      await updatePost(postId, { content: newContent });
+      await updatePost(postId, {
+        content: newContent,
+        image: options.image,
+        textColor: options.textColor,
+        fontFamily: options.fontFamily,
+      });
       pushNotif("✏️ Post updated!");
       await loadFeed();
     } catch (err) {
@@ -1559,7 +1730,7 @@ export default function HaitiSocialApp() {
     }
   };
 
-  const handleEditMemorial = async (memorialId, newName, newYears, newTribute) => {
+  const handleEditMemorial = async (memorialId, newName, newYears, newTribute, options = {}) => {
     if (!currentUser) {
       pushNotif("⚠️ Please log in to edit memorials");
       return;
@@ -1567,7 +1738,12 @@ export default function HaitiSocialApp() {
 
     try {
       const content = `${newName}${newYears ? ` (${newYears})` : ""}\n\n${newTribute}`;
-      await updatePost(memorialId, { content });
+      await updatePost(memorialId, {
+        content,
+        image: options.image,
+        textColor: options.textColor,
+        fontFamily: options.fontFamily,
+      });
       pushNotif("✏️ Memorial updated!");
       await loadFeed(); // Reload to ensure memorials are up to date
     } catch (err) {
@@ -1818,6 +1994,8 @@ export default function HaitiSocialApp() {
         photos: imageUrls,
         author: currentUser || created?.user || 'Anonymous',
         timestamp: created?.timestamp || Date.now(),
+        textColor: memorialTextColor,
+        fontFamily: memorialFontFamily,
         condolences: [],
       };
 
@@ -2276,9 +2454,34 @@ export default function HaitiSocialApp() {
                   placeholder="News Content"
                   value={newNewsContent}
                   onChange={(e) => setNewNewsContent(e.target.value)}
+                  ref={newsContentRef}
                   rows={4}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{ color: newNewsTextColor }}
                 />
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="text-sm font-semibold text-gray-700">Text color</label>
+                  <input
+                    type="color"
+                    value={newNewsTextColor}
+                    onChange={(e) => setNewNewsTextColor(e.target.value)}
+                    className="h-9 w-12 rounded border border-gray-300 bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setNewsEmojiOpen((prev) => !prev)}
+                    className="ml-auto bg-blue-50 text-blue-700 px-3 py-2 rounded-lg font-semibold hover:bg-blue-100"
+                  >
+                    😀 Emoji
+                  </button>
+                </div>
+                {newsEmojiOpen && (
+                  <EmojiPicker
+                    onSelect={(emoji) =>
+                      insertEmojiAtCursor(newsContentRef, newNewsContent, setNewNewsContent, emoji)
+                    }
+                  />
+                )}
                 {newNewsImage && (
                   <div className="relative">
                     <img src={newNewsImage} alt="News preview" className="w-full max-h-40 object-cover rounded-lg border" />
@@ -2322,9 +2525,63 @@ export default function HaitiSocialApp() {
                 {article.image && (
                   <img src={article.image} alt={article.title} className="w-full h-48 object-cover rounded-lg mb-3" />
                 )}
-                <h3 className="font-bold text-lg">{article.title}</h3>
-                <p className="text-gray-600 mt-2">{article.content}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-lg">{article.title}</h3>
+                    <p className="text-sm text-gray-500">Posted by {article.author || "Admin"}</p>
+                  </div>
+                  {(isAdmin || currentUser === article.author) && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditNews(article.id)}
+                        className="text-gray-500 hover:text-gray-800"
+                        title="Edit news"
+                      >
+                        <Edit size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteNews(article.id)}
+                        className="text-red-500 hover:text-red-700"
+                        title="Delete news"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <p className="text-gray-600 mt-2" style={{ color: article.textColor || undefined }}>
+                  {article.content}
+                </p>
                 <span className="text-sm text-gray-500 mt-2 block">{article.timestamp}</span>
+                <div className="mt-3 border-t pt-3">
+                  <div className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <MessageSquare size={16} />
+                    {(article.comments || []).length} Comments
+                  </div>
+                  {(article.comments || []).map((comment) => (
+                    <div key={comment.id} className="mt-2 bg-gray-50 rounded-lg p-2">
+                      <div className="text-xs text-gray-500">{comment.author}</div>
+                      <div className="text-sm text-gray-700">{comment.text}</div>
+                    </div>
+                  ))}
+                  <div className="flex gap-2 mt-2">
+                    <input
+                      type="text"
+                      value={newsCommentTexts[article.id] || ""}
+                      onChange={(e) =>
+                        setNewsCommentTexts((prev) => ({ ...prev, [article.id]: e.target.value }))
+                      }
+                      placeholder="Add a comment..."
+                      className="flex-1 p-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <button
+                      onClick={() => handleAddNewsComment(article.id)}
+                      className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700"
+                    >
+                      Comment
+                    </button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -2364,8 +2621,10 @@ export default function HaitiSocialApp() {
                   placeholder="Event Description"
                   value={newEventDescription}
                   onChange={(e) => setNewEventDescription(e.target.value)}
+                  ref={eventDescriptionRef}
                   rows={3}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  style={{ color: newEventTextColor }}
                 />
                 <input
                   type="text"
@@ -2381,6 +2640,29 @@ export default function HaitiSocialApp() {
                   onChange={(e) => setNewEventLocation(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="text-sm font-semibold text-gray-700">Text color</label>
+                  <input
+                    type="color"
+                    value={newEventTextColor}
+                    onChange={(e) => setNewEventTextColor(e.target.value)}
+                    className="h-9 w-12 rounded border border-gray-300 bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setEventEmojiOpen((prev) => !prev)}
+                    className="ml-auto bg-purple-50 text-purple-700 px-3 py-2 rounded-lg font-semibold hover:bg-purple-100"
+                  >
+                    😀 Emoji
+                  </button>
+                </div>
+                {eventEmojiOpen && (
+                  <EmojiPicker
+                    onSelect={(emoji) =>
+                      insertEmojiAtCursor(eventDescriptionRef, newEventDescription, setNewEventDescription, emoji)
+                    }
+                  />
+                )}
                 {newEventImage && (
                   <div className="relative">
                     <img src={newEventImage} alt="Event preview" className="w-full max-h-40 object-cover rounded-lg border" />
@@ -2424,9 +2706,63 @@ export default function HaitiSocialApp() {
                 {event.image && (
                   <img src={event.image} alt={event.title} className="w-full h-48 object-cover rounded-lg mb-3" />
                 )}
-                <h3 className="font-bold text-lg">{event.title}</h3>
-                <p className="text-gray-600 mt-2">{event.description}</p>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-lg">{event.title}</h3>
+                    <p className="text-sm text-gray-500">Posted by {event.author || "Admin"}</p>
+                  </div>
+                  {(isAdmin || currentUser === event.author) && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditEvent(event.id)}
+                        className="text-gray-500 hover:text-gray-800"
+                        title="Edit event"
+                      >
+                        <Edit size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteEvent(event.id)}
+                        className="text-red-500 hover:text-red-700"
+                        title="Delete event"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <p className="text-gray-600 mt-2" style={{ color: event.textColor || undefined }}>
+                  {event.description}
+                </p>
                 <p className="text-blue-600 font-semibold mt-2">{event.date} • {event.location}</p>
+                <div className="mt-3 border-t pt-3">
+                  <div className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <MessageSquare size={16} />
+                    {(event.comments || []).length} Comments
+                  </div>
+                  {(event.comments || []).map((comment) => (
+                    <div key={comment.id} className="mt-2 bg-gray-50 rounded-lg p-2">
+                      <div className="text-xs text-gray-500">{comment.author}</div>
+                      <div className="text-sm text-gray-700">{comment.text}</div>
+                    </div>
+                  ))}
+                  <div className="flex gap-2 mt-2">
+                    <input
+                      type="text"
+                      value={eventCommentTexts[event.id] || ""}
+                      onChange={(e) =>
+                        setEventCommentTexts((prev) => ({ ...prev, [event.id]: e.target.value }))
+                      }
+                      placeholder="Add a comment..."
+                      className="flex-1 p-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                    <button
+                      onClick={() => handleAddEventComment(event.id)}
+                      className="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-purple-700"
+                    >
+                      Comment
+                    </button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -2686,6 +3022,15 @@ export default function HaitiSocialApp() {
           onCancel={() => setScreen("profile")}
           onSuccess={() => setScreen("profile")}
           pushNotif={pushNotif}
+          adminUsername={ADMIN_USERNAME}
+          onRequestReset={(target) => {
+            if (!currentUser) {
+              pushNotif("⚠️ Please log in to message the admin");
+              return;
+            }
+            setCurrentChatUser(target);
+            setScreen("privateMessages");
+          }}
         />
       </Shell>
     );

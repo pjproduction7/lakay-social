@@ -19,9 +19,15 @@ const pool = new Pool({
 
 const ADMIN_USERNAME = (process.env.ADMIN_USERNAME || "admin").trim().toLowerCase();
 const ADMIN_EMAIL = `${ADMIN_USERNAME}@lakay.social`;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 async function seed() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error("DATABASE_URL is not set");
+  }
+  if (!ADMIN_PASSWORD) {
+    throw new Error("ADMIN_PASSWORD is not set");
+  }
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
