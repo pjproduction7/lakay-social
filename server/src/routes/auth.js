@@ -128,10 +128,11 @@ router.post("/login", authLimiter, async (req, res) => {
   }
 
   const { username, password, mfaToken } = parse.data;
+  const normalizedUsername = username.trim();
   try {
     const result = await query(
-      "SELECT id, username, email, password_hash, mfa_secret, mfa_enabled FROM users WHERE username = $1",
-      [username]
+      "SELECT id, username, email, password_hash, mfa_secret, mfa_enabled FROM users WHERE LOWER(username) = LOWER($1)",
+      [normalizedUsername]
     );
     if (result.rowCount === 0) {
       return res.status(404).json({ error: "User not found" });

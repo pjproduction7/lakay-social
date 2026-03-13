@@ -29,6 +29,7 @@ const SCREENSHOTS = [
     theme: "from-sky-600 via-slate-800 to-slate-900",
     accent: "bg-sky-400",
     chip: "Chat",
+    onlineUsers: ["Mireille D.", "Jean-Luc P.", "Sabrina L.", "Katia R."],
   },
   {
     title: "Events",
@@ -39,7 +40,7 @@ const SCREENSHOTS = [
   },
 ];
 
-function PhoneFrame({ title, subtitle, theme, accent, chip }) {
+function PhoneFrame({ title, subtitle, theme, accent, chip, onlineUsers = [] }) {
   return (
     <div className="w-full max-w-[220px]">
       <div className="rounded-[28px] border border-white/15 bg-black/30 p-3 shadow-2xl">
@@ -64,7 +65,18 @@ function PhoneFrame({ title, subtitle, theme, accent, chip }) {
                   <div className="h-12 rounded-xl bg-white/20" />
                   <div className="h-12 rounded-xl bg-white/10" />
                 </div>
-                <div className="mt-3 h-20 rounded-xl bg-white/10" />
+                {title === "Chat" ? (
+                  <div className="mt-3 space-y-2 rounded-xl bg-black/30 p-2">
+                    {onlineUsers.map((name) => (
+                      <div key={name} className="flex items-center gap-2 text-[10px] text-white/80">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.65)]" />
+                        <span className="truncate">{name}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-3 h-20 rounded-xl bg-white/10" />
+                )}
               </div>
             </div>
             <div className="mt-3 space-y-1 text-white/80">

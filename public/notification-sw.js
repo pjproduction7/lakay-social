@@ -4,8 +4,8 @@ self.addEventListener('push', function(event) {
   const title = data.title || 'Lakay Social Notification';
   const options = {
     body: data.body || '',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: '/favicon.svg',
+    badge: '/favicon.svg',
     data: data.url || '/'
   };
   event.waitUntil(self.registration.showNotification(title, options));

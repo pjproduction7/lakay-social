@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Lakay Social</string>
+    <string name="title_activity_main">Lakay Social</string>
+    <string name="package_name">com.pjproduction.lakaysocial</string>
+    <string name="custom_url_scheme">com.pjproduction.lakaysocial</string>
+</resources>

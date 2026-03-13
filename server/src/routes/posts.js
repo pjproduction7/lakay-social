@@ -27,6 +27,7 @@ const createPostSchema = z.object({
     .max(200000)
     .nullable()
     .optional(),
+  postType: z.enum(["post", "memorial"]).optional(),
   textColor: z.string().max(32).nullable().optional(),
   fontFamily: z.string().max(80).nullable().optional(),
 });
@@ -99,8 +100,8 @@ async function fetchPosts({ ids, limit = 100, user = null } = {}) {
     postsQuery += `WHERE p.id = ANY($1::int[])`;
   } else {
     // For general feed, only show approved posts unless user is admin
-    if (hasApproved && (!user || !user.isAdmin)) {
-      if (user && user.username) {
+    if (hasApproved && user && !user.isAdmin) {
+      if (user.username) {
         if (hasPostType) {
           postsQuery += `WHERE (p.approved = true OR (p.username = $1 AND p.post_type = 'memorial'))`;
           params.push(user.username);
@@ -108,8 +109,6 @@ async function fetchPosts({ ids, limit = 100, user = null } = {}) {
           postsQuery += `WHERE (p.approved = true OR p.username = $1)`;
           params.push(user.username);
         }
-      } else {
-        postsQuery += `WHERE p.approved = true`;
       }
     }
   }
@@ -246,11 +245,17 @@ router.post("/", requireAuth, async (req, res) => {
     return res.status(400).json({ error: parse.error.flatten().fieldErrors });
   }
 
-  const { content, imageUrl = null, textColor = null, fontFamily = null } = parse.data;
+  const {
+    content,
+    imageUrl = null,
+    postType: requestedPostType,
+    textColor = null,
+    fontFamily = null,
+  } = parse.data;
   
   // Check if this is a memorial (content contains double newline indicating name/tribute format)
   const isMemorial = content.includes('\n\n');
-  const postType = isMemorial ? 'memorial' : 'post';
+  const postType = requestedPostType || (isMemorial ? 'memorial' : 'post');
   const approved = true;
   
   try {

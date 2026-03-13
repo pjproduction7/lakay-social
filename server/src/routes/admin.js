@@ -80,8 +80,14 @@ router.post("/users", requireAuth, requireAdmin, async (req, res) => {
   }
 
   try {
+    const normalizedUsername = username.trim().toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
+
     // Check if user already exists
-    const existing = await query("SELECT id FROM users WHERE username = $1 OR email = $2", [username, email]);
+    const existing = await query(
+      "SELECT id FROM users WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($2)",
+      [normalizedUsername, normalizedEmail]
+    );
     if (existing.rowCount > 0) {
       return res.status(409).json({ error: "Username or email already exists" });
     }
@@ -93,16 +99,16 @@ router.post("/users", requireAuth, requireAdmin, async (req, res) => {
     // Create user
     const insert = await query(
       "INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, created_at",
-      [username, email, hash]
+      [normalizedUsername, normalizedEmail, hash]
     );
 
     // Create profile
     await query(
       "INSERT INTO profiles (user_id, username, display_name, bio, location) VALUES ($1, $2, $2, '', '') ON CONFLICT (user_id) DO NOTHING",
-      [insert.rows[0].id, username]
+      [insert.rows[0].id, normalizedUsername]
     );
 
-    auditLog('USER_CREATED', req.user.id, { targetUserId: insert.rows[0].id, targetUsername: username });
+    auditLog('USER_CREATED', req.user.id, { targetUserId: insert.rows[0].id, targetUsername: normalizedUsername });
     res.status(201).json({ user: insert.rows[0], message: "User created successfully" });
   } catch (err) {
     console.error(err);

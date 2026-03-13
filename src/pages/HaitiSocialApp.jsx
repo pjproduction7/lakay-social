@@ -1584,6 +1584,7 @@ export default function HaitiSocialApp() {
       await createRemotePost({
         content: text.trim(),
         image: postImage,
+        postType: "post",
         textColor: postTextColor,
         fontFamily: postFontFamily,
       });
@@ -1979,6 +1980,7 @@ export default function HaitiSocialApp() {
       const created = await createRemotePost({
         content,
         image: imageUrl,
+        postType: "memorial",
         textColor: memorialTextColor,
         fontFamily: memorialFontFamily,
       });

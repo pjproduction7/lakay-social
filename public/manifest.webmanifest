@@ -1,0 +1,19 @@
+{
+  "name": "Lakay Social",
+  "short_name": "Lakay",
+  "description": "Lakay Social connects the Haitian community with news, events, and conversations.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#1d4ed8",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
