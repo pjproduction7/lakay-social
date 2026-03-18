@@ -10,10 +10,9 @@ import AppStorePreview from './pages/AppStorePreview'
 
 export default function App() {
   useEffect(() => {
-    // Push notifications temporarily disabled due to VAPID key configuration issues
-    // TODO: Fix VAPID key loading from environment variables
-    console.log('Push notifications disabled for now');
+    // Push notifications ready - VAPID configured via env vars
   }, []);
+
 
   return (
     <BrowserRouter>

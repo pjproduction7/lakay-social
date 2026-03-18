@@ -1,0 +1,10 @@
+.next/
+dist/
+coverage/
+android/
+ios/
+server/LakayMobile/
+public/*.min.js
+*.bundle.js
+build/
+
